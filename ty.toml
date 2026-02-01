@@ -1,0 +1,6 @@
+[environment]
+python = "./.venv"
+python-version = "3.13"
+
+[src]
+include = ["**/*.py"]

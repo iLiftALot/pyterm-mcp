@@ -1,0 +1,83 @@
+output-format = "full"
+target-version = "py313"
+line-length = 90
+indent-width = 4
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "code_examples",
+    "miniconda3",
+    "cpython-3.13.9-macos-aarch64-none"
+]
+include = [
+    "**{src,tests}/**/*.py",
+    "**{src,tests}/**/*.ipynb"
+]
+builtins = ["ic"]
+
+[lint]
+extend-select = [
+    "A",    # prevent using keywords that clobber python builtins
+    "B",    # bugbear: security warnings
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "ISC",  # implicit string concatenation
+    "UP",   # alert you when better syntax is available in your python version
+    "RUF",  # the ruff developer's own rules
+]
+extend-ignore = [
+    "D",        # ignore missing docs
+    "TC",       # false positives for local imports
+    "E501",     # line too long
+    "I001",     # unsorted imports
+    "TRY003",   # external messages in exceptions are too verbose
+    "UP035",    # Checks for uses of deprecated imports based on the minimum supported Python version.
+    "UP006",    # Checks for the use of generics that can be replaced with standard library variants based on PEP 585.
+    "UP007",    # Check for type annotations that can be rewritten based on PEP 604 syntax.
+    "UP015",    # Checks for redundant open mode arguments.
+    "UP040",    # Checks for use of TypeAlias annotations and TypeAliasType assignments for declaring type aliases.
+    "UP045",    # Check for typing.Optional annotations that can be rewritten based on PEP 604 syntax.
+    "A002",     # Checks for function arguments that use the same names as builtins
+    "B905",     # `zip()` without an explicit `strict=` parameter
+]
+
+[lint.isort]
+force-wrap-aliases = false
+force-sort-within-sections = false
+split-on-trailing-comma = true
+lines-after-imports = 2
+
+[format]
+line-ending = "auto"
+docstring-code-line-length = 90
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = true
+
+[analyze]
+type-checking-imports = false

@@ -1,0 +1,3 @@
+[submodule "packages/iterm2-api-wrapper"]
+	path = packages/iterm2-api-wrapper
+	url = https://github.com/iLiftALot/iterm2-api-wrapper.git
