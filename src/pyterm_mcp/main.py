@@ -1,12 +1,13 @@
+from __future__ import annotations
 import asyncio
 from iterm2_api_wrapper.client import create_iterm_client, iTermClient
 from iterm2_api_wrapper.state import iTermState
-from typing import Any
+from typing import Callable, TypeVar, ParamSpec
 from mcp.server.fastmcp import FastMCP
+from pyterm_mcp.return_types import CommandResult
 
 
 mcp = FastMCP(name="PyTerm-MCP")
-
 _client: iTermClient | None = None
 
 
@@ -17,35 +18,68 @@ def _get_client() -> iTermClient[iTermState]:
     return _client
 
 
-def _run_command_sync(command: str, broadcast: bool) -> dict[str, Any]:
+T = TypeVar("T")
+P = ParamSpec("P")
+
+
+async def _run_in_thread(fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+    return await asyncio.to_thread(fn, *args, **kwargs)
+
+
+def _send_command(
+    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 30.0
+) -> CommandResult:
     """Blocking helper that runs in the client's event loop."""
     client = _get_client()
 
-    async def inner() -> dict[str, Any]:
+    async def inner() -> CommandResult:
         async with client.state_manager_async(close=False) as state:
-            output = await state.run_command(command=command, broadcast=broadcast)
-            return {
-                "status": "sent",
-                "command": command,
-                "broadcast": broadcast,
-                "output": output.strip() if output else "(no output)",
-            }
+            output = await state.run_command(
+                command=command, broadcast=broadcast, path=path, timeout=timeout
+            )
+            return CommandResult(
+                status="success",
+                command=command,
+                broadcast=broadcast,
+                output=output.strip() if output else "(no output)",
+            )
 
-    return asyncio.run_coroutine_threadsafe(inner(), client._loop).result(timeout=30)
+    return asyncio.run_coroutine_threadsafe(inner(), client._loop).result()
 
 
-@mcp.tool()
-async def send_command(command: str, broadcast: bool = False) -> dict[str, Any]:
-    """Send a command to the user's terminal.
-
-    Args:
-        command: The command to run in the terminal.
-        broadcast: If True, send to all iTerm sessions.
-
-    Returns:
-        dict with status, command, broadcast flag, and captured output.
+@mcp.tool(
+    title="Send Command",
+    description="Send a command to the user's terminal.",
+    structured_output=True,
+)
+async def send_command(
+    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 30.0
+) -> CommandResult:
     """
-    return await asyncio.to_thread(_run_command_sync, command, broadcast)
+    Send a command to the user's terminal and return the output.
+
+    .. NOTE::
+        The `path` parameter specifies the working directory in which to run the command.
+        If the command needs to be run in a specific directory (e.g., activating a virtual
+        environment), you must provide the desired path here.
+
+    ---
+
+    :param command: The command to send to the terminal.
+    :type command: ``str``
+    :param path: The working directory in which to run the command, defaults to None
+    :type path: ``str``, optional
+    :param broadcast: Whether to broadcast the command to all sessions, defaults to False
+    :type broadcast: ``bool``, optional
+    :param timeout: The timeout for the command execution, defaults to 30.0
+    :type timeout: ``float``, optional
+    :return: The result of the command execution.
+    :rtype: ``CommandResult``
+    """
+    result = await _run_in_thread(
+        _send_command, command, path=path, broadcast=broadcast, timeout=timeout
+    )
+    return result
 
 
 def main() -> None:

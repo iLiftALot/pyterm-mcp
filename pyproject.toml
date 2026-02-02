@@ -15,7 +15,8 @@ classifiers = [
 license = {text = "MIT"}
 dependencies = [
     "mcp[cli]>=1.26.0",
-    "iterm2-api-wrapper"
+    "iterm2-api-wrapper",
+    "pydantic>=2.12.5",
 ]
 requires-python = ">= 3.13"
 
