@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import asyncio
+from typing import Callable, ParamSpec, TypeVar
+
 from iterm2_api_wrapper.client import create_iterm_client, iTermClient
 from iterm2_api_wrapper.state import iTermState
-from typing import Callable, TypeVar, ParamSpec
 from mcp.server.fastmcp import FastMCP
+
 from pyterm_mcp.return_types import CommandResult
 
 
@@ -27,13 +30,13 @@ async def _run_in_thread(fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) 
 
 
 def _send_command(
-    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 30.0
+    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 10.0
 ) -> CommandResult:
     """Blocking helper that runs in the client's event loop."""
     client = _get_client()
 
     async def inner() -> CommandResult:
-        async with client.state_manager_async(close=False) as state:
+        async with client.state_manager_async(close=True) as state:
             try:
                 output = await state.run_command(
                     command=command, broadcast=broadcast, path=path, timeout=timeout
@@ -46,10 +49,7 @@ def _send_command(
                 )
             except Exception as e:
                 return CommandResult(
-                    status="error",
-                    command=command,
-                    broadcast=broadcast,
-                    output=str(e),
+                    status="error", command=command, broadcast=broadcast, output=str(e)
                 )
 
     return asyncio.run_coroutine_threadsafe(inner(), client._loop).result()
@@ -61,7 +61,7 @@ def _send_command(
     structured_output=True,
 )
 async def send_command(
-    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 30.0
+    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 10.0
 ) -> CommandResult:
     """
     Send a command to the user's terminal and return the output.
@@ -79,7 +79,7 @@ async def send_command(
     :type path: ``str``, optional
     :param broadcast: Whether to broadcast the command to all sessions, defaults to False
     :type broadcast: ``bool``, optional
-    :param timeout: The timeout for the command execution, defaults to 30.0
+    :param timeout: The timeout for the command execution, defaults to 10.0
     :type timeout: ``float``, optional
     :return: The result of the command execution.
     :rtype: ``CommandResult``
