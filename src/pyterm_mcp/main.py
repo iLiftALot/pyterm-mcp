@@ -34,15 +34,23 @@ def _send_command(
 
     async def inner() -> CommandResult:
         async with client.state_manager_async(close=False) as state:
-            output = await state.run_command(
-                command=command, broadcast=broadcast, path=path, timeout=timeout
-            )
-            return CommandResult(
-                status="success",
-                command=command,
-                broadcast=broadcast,
-                output=output.strip() if output else "(no output)",
-            )
+            try:
+                output = await state.run_command(
+                    command=command, broadcast=broadcast, path=path, timeout=timeout
+                )
+                return CommandResult(
+                    status="success",
+                    command=command,
+                    broadcast=broadcast,
+                    output=output.strip() if output else "(no output)",
+                )
+            except Exception as e:
+                return CommandResult(
+                    status="error",
+                    command=command,
+                    broadcast=broadcast,
+                    output=str(e),
+                )
 
     return asyncio.run_coroutine_threadsafe(inner(), client._loop).result()
 
