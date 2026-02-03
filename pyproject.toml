@@ -86,7 +86,10 @@ addopts = "-vv -l -x"
 package = true
 
 [tool.uv.workspace]
-members = ["packages/iterm2-api-wrapper"]
+members = ["packages/*"]
 
 [tool.uv.sources]
 iterm2_api_wrapper = { workspace = true }
+
+[tool.setuptools.packages.find]
+where = ["src"]
