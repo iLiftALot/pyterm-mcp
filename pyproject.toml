@@ -53,6 +53,7 @@ homepage = "https://github.com/iLiftALot/pyterm_mcp"
 
 [project.scripts]
 pyterm_mcp = "pyterm_mcp.main:main"
+pyterm_dev = "pyterm_mcp.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

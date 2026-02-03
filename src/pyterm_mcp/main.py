@@ -18,6 +18,15 @@ def _get_client() -> iTermClient[iTermState]:
     global _client
     if _client is None:
         _client = create_iterm_client()
+        return _client
+
+    loop = _client.loop
+    if loop.is_closed() or not loop.is_running():
+        try:
+            _client.close()
+        except Exception:
+            pass
+        _client = create_iterm_client()
     return _client
 
 
@@ -36,7 +45,7 @@ def _send_command(
     client = _get_client()
 
     async def inner() -> CommandResult:
-        async with client.state_manager_async(close=True) as state:
+        async with client.state_manager_async(close=False) as state:
             try:
                 output = await state.run_command(
                     command=command, broadcast=broadcast, path=path, timeout=timeout
