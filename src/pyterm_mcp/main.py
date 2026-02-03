@@ -100,7 +100,6 @@ async def send_command(
 
 
 def main() -> None:
-    """Run the MCP server."""
     mcp.run()
 
 
