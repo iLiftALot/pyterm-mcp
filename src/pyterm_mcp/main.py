@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from iterm2_api_wrapper.client import get_shared_client
-from iterm2_api_wrapper.logging import PrettyLog
+from iterm2_api_wrapper._logging import PrettyLog
 from mcp.server.fastmcp import FastMCP
 
 from pyterm_mcp.return_types import CommandResult

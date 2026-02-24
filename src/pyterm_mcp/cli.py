@@ -3,10 +3,7 @@
 from pathlib import Path
 import subprocess
 import typer
-import asyncio
 from rich.console import Console
-from iterm2_api_wrapper.client import create_iterm_client
-from iterm2_api_wrapper.state import iTermState
 
 
 app = typer.Typer()
