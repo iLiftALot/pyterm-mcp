@@ -22,12 +22,11 @@ async def _send_command(command, path=None, broadcast=False, timeout=10.0):
         return CommandResult(
             status="success",
             command=command,
-            broadcast=broadcast,
             output=output.strip() if output else "(no output)",
         )
     except Exception as e:
         return CommandResult(
-            status="error", command=command, broadcast=broadcast, output=str(e)
+            status="error", command=command, output=str(e)
         )
 
 
