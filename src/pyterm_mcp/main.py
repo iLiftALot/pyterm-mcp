@@ -34,7 +34,7 @@ async def _send_command(command, path=None, broadcast=False, timeout=10.0):
 @mcp.tool(
     title="Send Command",
     description="Send a command to the user's terminal.",
-    structured_output=True,
+    structured_output=None,
 )
 async def send_command(
     command: str, path: str | None = None, broadcast: bool = False, timeout: float = 10.0
