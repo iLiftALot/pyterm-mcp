@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Annotated
 
 from iterm2_api_wrapper._logging import PrettyLog
 from iterm2_api_wrapper.client import get_shared_client
 from mcp.server.fastmcp import FastMCP
-from mcp.types import CallToolResult
+from mcp.types import CallToolResult, TextContent
 
 from pyterm_mcp.return_types import CommandResult
 
 
-mcp = FastMCP(name="PyTerm-MCP")
+mcp = FastMCP(
+    name="PyTerm-MCP",
+    instructions="A tool to interact with the user's terminal. Use this tool to run commands in the user's terminal and get the output.",
+)
 
 
 async def _send_command(
@@ -26,16 +28,26 @@ async def _send_command(
         return CommandResult(
             status="success",
             command=command,
-            output=output.strip() if output else "(no output)",
+            broadcast=broadcast,
+            path=path,
+            timeout=timeout,
+            output=output.strip() if output else "<no output>",
         )
     except Exception as e:
-        return CommandResult(status="error", command=command, output=str(e))
+        return CommandResult(
+            status="error",
+            command=command,
+            broadcast=broadcast,
+            path=path,
+            timeout=timeout,
+            output=str(e),
+        )
 
 
 @mcp.tool(title="Send Command", description="Send a command to the user's terminal.")
 async def send_command(
     command: str, path: str | None = None, broadcast: bool = False, timeout: float = 10.0
-) -> Annotated[CallToolResult, CommandResult]:
+) -> CallToolResult:
     """
     Send a command to the user's terminal and return the output.
 
@@ -61,7 +73,9 @@ async def send_command(
     payload = result.model_dump()
 
     return CallToolResult(
-        content=[], structuredContent=payload, isError=(result.status == "error")
+        content=[TextContent(type="text", text=result.output)],
+        structuredContent=payload,
+        isError=(result.status == "error"),
     )
 
 

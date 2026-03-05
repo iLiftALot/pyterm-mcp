@@ -9,4 +9,7 @@ class CommandResult(BaseModel):
         description="The status of the command execution, either 'success' or 'error'.",
     )
     command: str = Field(..., description="The command that was executed.")
+    broadcast: bool = Field(..., description="Whether the command was broadcast to all sessions.")
+    path: str | None = Field(None, description="The working directory in which the command was executed.")
+    timeout: float = Field(..., description="The timeout for the command execution.")
     output: str = Field(..., description="The output of the command execution.")
