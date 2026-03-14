@@ -73,8 +73,10 @@ async def send_command(
     payload = result.model_dump()
 
     return CallToolResult(
-        content=[TextContent(type="text", text=result.output)],
-        structuredContent=payload,
+        content=[TextContent(type="text", text=result.output)]
+        if result.status == "success"
+        else [],
+        structuredContent=payload if result.status == "error" else None,
         isError=(result.status == "error"),
     )
 
