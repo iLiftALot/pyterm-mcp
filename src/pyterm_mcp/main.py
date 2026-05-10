@@ -12,7 +12,7 @@ from pyterm_mcp.return_types import CommandResult
 
 mcp = FastMCP(
     name="PyTerm-MCP",
-    instructions="A tool to interact with the user's terminal. Use this tool to run commands in the user's terminal and get the output.",
+    instructions="A tool to interact with the user's terminal. Use this tool to run commands in the user's environment and get the output.",
 )
 
 
@@ -70,13 +70,12 @@ async def send_command(
     :rtype: ``CommandResult``
     """
     result = await _send_command(command, path=path, broadcast=broadcast, timeout=timeout)
-    payload = result.model_dump()
 
     return CallToolResult(
         content=[TextContent(type="text", text=result.output)]
         if result.status == "success"
         else [],
-        structuredContent=payload if result.status == "error" else None,
+        structuredContent=result.model_dump() if result.status == "error" else None,
         isError=(result.status == "error"),
     )
 

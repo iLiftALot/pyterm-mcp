@@ -18,7 +18,7 @@ dependencies = [
     "iterm2-api-wrapper",
     "pydantic>=2.12.5",
 ]
-requires-python = ">= 3.13"
+requires-python = ">= 3.12"
 
 [project.optional-dependencies]
 custom_packages = []
@@ -42,7 +42,7 @@ dev = [
 
 
 [build-system]
-requires = ["uv_build >= 0.9.15, <0.10.0"]
+requires = ["uv_build >= 0.11.12, <0.12.0"]
 build-backend = "uv_build"
 
 
