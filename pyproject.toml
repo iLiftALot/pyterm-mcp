@@ -35,7 +35,6 @@ dev = [
     "typer",
     "pytest",
     "pytest-cov",
-    "icecream",
     "rich",
     "myst-parser>=4.0.1",
 ]

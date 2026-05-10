@@ -37,9 +37,19 @@ coverage:
 
 # Build the project, useful for checking that packaging is correct
 build:
+    uv sync --active
     rm -rf build
     rm -rf dist
     uv build
+    uv build-backend build-sdist .
+    uv build-backend build-wheel .
+    uv build-backend build-editable .
+    uv sync --active
+
+build-install:
+    @just build
+    uv tool uninstall pyterm-mcp
+    uv tool install . --editable
 
 VERSION := `grep -m1 '^version' pyproject.toml | sed -E 's/version = "(.*)"/\1/'`
 
