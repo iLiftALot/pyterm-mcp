@@ -17,6 +17,8 @@ format:
 
 lint:
     uv run --active --python=3.12 --group dev ruff check . --fix
+    uv run --active --python=3.12 --group dev ruff check --select I --fix .
+    uv run --active --python=3.12 --group dev ty check ./src
 
 # Run all the formatting, linting, and testing commands
 qa:
