@@ -1,7 +1,8 @@
 """Console script for pyterm_mcp."""
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
 import typer
 from rich.console import Console
 
