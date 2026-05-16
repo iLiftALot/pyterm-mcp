@@ -76,7 +76,7 @@ async def send_command(
         if result.status == "success"
         else [],
         structuredContent=result.model_dump() if result.status == "error" else None,
-        isError=(result.status == "error")
+        isError=(result.status == "error"),
     )
 
 

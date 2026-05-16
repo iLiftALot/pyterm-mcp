@@ -14,7 +14,9 @@ from pyterm_mcp.return_types import CommandResult
 
 
 class DummyState:
-    def __init__(self, *, output: str | None = " command output \n", exc: Exception | None = None) -> None:
+    def __init__(
+        self, *, output: str | None = " command output \n", exc: Exception | None = None
+    ) -> None:
         self.output = output
         self.exc = exc
         self.calls: list[dict[str, Any]] = []
@@ -37,12 +39,7 @@ class DummyClient:
 @pytest.mark.parametrize("status", ["success", "error"])
 def test_command_result_accepts_current_status_values(status: str) -> None:
     result = CommandResult(
-        status=status,
-        command="pwd",
-        broadcast=False,
-        path=None,
-        timeout=1.0,
-        output="ok",
+        status=status, command="pwd", broadcast=False, path=None, timeout=1.0, output="ok"
     )
 
     assert result.model_dump() == {
@@ -67,7 +64,9 @@ def test_command_result_rejects_unknown_status() -> None:
         )
 
 
-def test_send_command_helper_returns_stripped_success(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_command_helper_returns_stripped_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     state = DummyState(output=" hello from terminal \n")
 
     async def fake_get_shared_client() -> DummyClient:
@@ -75,7 +74,9 @@ def test_send_command_helper_returns_stripped_success(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
-    result = asyncio.run(pyterm_main._send_command("echo hi", path="/tmp", broadcast=True, timeout=2.5))
+    result = asyncio.run(
+        pyterm_main._send_command("echo hi", path="/tmp", broadcast=True, timeout=2.5)
+    )
 
     assert result == CommandResult(
         status="success",
@@ -86,11 +87,13 @@ def test_send_command_helper_returns_stripped_success(monkeypatch: pytest.Monkey
         output="hello from terminal",
     )
     assert state.calls == [
-        {"command": "echo hi", "broadcast": True, "path": "/tmp", "timeout": 2.5},
+        {"command": "echo hi", "broadcast": True, "path": "/tmp", "timeout": 2.5}
     ]
 
 
-def test_send_command_helper_uses_no_output_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_command_helper_uses_no_output_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     state = DummyState(output="")
 
     async def fake_get_shared_client() -> DummyClient:
@@ -104,7 +107,9 @@ def test_send_command_helper_uses_no_output_placeholder(monkeypatch: pytest.Monk
     assert result.output == "<no output>"
 
 
-def test_send_command_helper_returns_error_result(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_command_helper_returns_error_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     state = DummyState(exc=RuntimeError("terminal unavailable"))
 
     async def fake_get_shared_client() -> DummyClient:
@@ -124,8 +129,12 @@ def test_send_command_helper_returns_error_result(monkeypatch: pytest.MonkeyPatc
     )
 
 
-def test_send_command_tool_returns_text_content_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_send_command(command: str, path: str | None, broadcast: bool, timeout: float) -> CommandResult:
+def test_send_command_tool_returns_text_content_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_send_command(
+        command: str, path: str | None, broadcast: bool, timeout: float
+    ) -> CommandResult:
         return CommandResult(
             status="success",
             command=command,
@@ -137,7 +146,9 @@ def test_send_command_tool_returns_text_content_on_success(monkeypatch: pytest.M
 
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-    result = asyncio.run(pyterm_main.send_command("date", path=None, broadcast=False, timeout=3.0))
+    result = asyncio.run(
+        pyterm_main.send_command("date", path=None, broadcast=False, timeout=3.0)
+    )
 
     assert result.isError is False
     assert result.structuredContent is None
@@ -146,8 +157,12 @@ def test_send_command_tool_returns_text_content_on_success(monkeypatch: pytest.M
     assert result.content[0].text == "done"
 
 
-def test_send_command_tool_returns_structured_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_send_command(command: str, path: str | None, broadcast: bool, timeout: float) -> CommandResult:
+def test_send_command_tool_returns_structured_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_send_command(
+        command: str, path: str | None, broadcast: bool, timeout: float
+    ) -> CommandResult:
         return CommandResult(
             status="error",
             command=command,
@@ -159,7 +174,9 @@ def test_send_command_tool_returns_structured_error(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-    result = asyncio.run(pyterm_main.send_command("date", path="/work", broadcast=True, timeout=3.0))
+    result = asyncio.run(
+        pyterm_main.send_command("date", path="/work", broadcast=True, timeout=3.0)
+    )
 
     assert result.isError is True
     assert result.content == []
@@ -173,7 +190,9 @@ def test_send_command_tool_returns_structured_error(monkeypatch: pytest.MonkeyPa
     }
 
 
-def test_cli_main_runs_mcp_dev_with_project_relative_server(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_main_runs_mcp_dev_with_project_relative_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: list[dict[str, Any]] = []
     printed: list[str] = []
 
@@ -194,7 +213,7 @@ def test_cli_main_runs_mcp_dev_with_project_relative_server(monkeypatch: pytest.
             "text": True,
             "check": True,
             "cwd": str(Path(__file__).resolve().parents[1]),
-        },
+        }
     ]
     assert printed == ["server ready\n"]
 
@@ -203,7 +222,9 @@ def test_cli_main_prints_subprocess_error(monkeypatch: pytest.MonkeyPatch) -> No
     printed: list[str] = []
 
     def fake_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        raise subprocess.CalledProcessError(2, command, output="stdout text", stderr="stderr text")
+        raise subprocess.CalledProcessError(
+            2, command, output="stdout text", stderr="stderr text"
+        )
 
     monkeypatch.setattr(cli.subprocess, "run", fake_run)
     monkeypatch.setattr(cli.console, "print", lambda value: printed.append(str(value)))

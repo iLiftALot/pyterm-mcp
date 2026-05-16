@@ -23,7 +23,9 @@ def main():
         )
         console.print(cmd.stdout)
     except subprocess.CalledProcessError as e:
-        console.print(f"[red]Error:[/red] {e.stderr if e.stderr else str(e)}\n{e.stdout if e.stdout else ''}")
+        console.print(
+            f"[red]Error:[/red] {e.stderr if e.stderr else str(e)}\n{e.stdout if e.stdout else ''}"
+        )
 
 
 if __name__ == "__main__":
