@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from pydantic import ValidationError
@@ -37,7 +37,7 @@ class DummyClient:
 
 
 @pytest.mark.parametrize("status", ["success", "error"])
-def test_command_result_accepts_current_status_values(status: str) -> None:
+def test_command_result_accepts_current_status_values(status: Literal["success", "error"]) -> None:
     result = CommandResult(
         status=status, command="pwd", broadcast=False, path=None, timeout=1.0, output="ok"
     )
@@ -55,7 +55,7 @@ def test_command_result_accepts_current_status_values(status: str) -> None:
 def test_command_result_rejects_unknown_status() -> None:
     with pytest.raises(ValidationError):
         CommandResult(
-            status="pending",
+            status="pending", # type:ignore
             command="pwd",
             broadcast=False,
             path=None,
