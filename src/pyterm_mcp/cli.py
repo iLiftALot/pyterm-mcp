@@ -15,18 +15,24 @@ main_file = Path(__file__).parent / "main.py"
 @app.command()
 def main():
     try:
-        cmd = subprocess.run(
+        # Kill any existing MCP inspector processes on both ports
+        for port in (6274, 6277):
+            subprocess.run(
+                f"lsof -ti :{port} | xargs kill -9",
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+        subprocess.run(
             ["mcp", "dev", str(main_file.relative_to(Path.cwd()))],
-            capture_output=True,
-            text=True,
             check=True,
             cwd=str(main_file.parents[2]),
         )
-        console.print(cmd.stdout)
     except subprocess.CalledProcessError as e:
-        console.print(
-            f"[red]Error:[/red] {e.stderr if e.stderr else str(e)}\n{e.stdout if e.stdout else ''}"
-        )
+        console.print(f"[red]Error:[/red] {e}")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]MCP inspector stopped.[/yellow]")
 
 
 if __name__ == "__main__":

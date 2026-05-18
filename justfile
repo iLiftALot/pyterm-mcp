@@ -20,6 +20,10 @@ lint:
     uv run --active --python=3.12 --group dev ruff check --select I --fix .
     uv run --active --python=3.12 --group dev ty check ./src
 
+    uv run --active --python=3.12 --group dev ruff check ./packages/iterm2-api-wrapper/src/iterm2_api_wrapper --fix
+    uv run --active --python=3.12 --group dev ruff check --select I --fix ./packages/iterm2-api-wrapper/src/iterm2_api_wrapper
+    uv run --active --python=3.12 --group dev ty check ./packages/iterm2-api-wrapper/src/iterm2_api_wrapper
+
 # Run all the formatting, linting, and testing commands
 qa:
     uv run --active --python=3.12 --group dev ruff format .

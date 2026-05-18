@@ -239,3 +239,4 @@ skills-lock.json
 .agents
 *.whl
 *.tar.gz
+tests/_dev.py

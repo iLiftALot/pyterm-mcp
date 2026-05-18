@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import subprocess
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Iterator, Literal
 
 import pytest
 from pydantic import ValidationError
 
 from pyterm_mcp import cli
 from pyterm_mcp import main as pyterm_main
-from pyterm_mcp.return_types import CommandResult
+from pyterm_mcp.types import CommandResult
 
 
 class DummyState:
@@ -36,8 +36,17 @@ class DummyClient:
         return self.state
 
 
+@pytest.fixture(autouse=True)
+def clear_running_commands() -> Iterator[None]:
+    pyterm_main._RUNNING_COMMANDS.clear()
+    yield
+    pyterm_main._RUNNING_COMMANDS.clear()
+
+
 @pytest.mark.parametrize("status", ["success", "error"])
-def test_command_result_accepts_current_status_values(status: Literal["success", "error"]) -> None:
+def test_command_result_accepts_current_status_values(
+    status: Literal["success", "error"],
+) -> None:
     result = CommandResult(
         status=status, command="pwd", broadcast=False, path=None, timeout=1.0, output="ok"
     )
@@ -55,7 +64,7 @@ def test_command_result_accepts_current_status_values(status: Literal["success",
 def test_command_result_rejects_unknown_status() -> None:
     with pytest.raises(ValidationError):
         CommandResult(
-            status="pending", # type:ignore
+            status="pending",  # type:ignore
             command="pwd",
             broadcast=False,
             path=None,
@@ -151,10 +160,20 @@ def test_send_command_tool_returns_text_content_on_success(
     )
 
     assert result.isError is False
-    assert result.structuredContent is None
     assert len(result.content) == 1
     assert result.content[0].type == "text"
     assert result.content[0].text == "done"
+
+    assert result.structuredContent is not None
+    assert result.structuredContent["status"] == "success"
+    assert result.structuredContent["command"] == "date"
+    assert result.structuredContent["broadcast"] is False
+    assert result.structuredContent["path"] is None
+    assert result.structuredContent["timeout"] == 3.0
+    assert result.structuredContent["output"] == "done"
+    assert result.structuredContent["is_done"] is True
+    assert isinstance(result.structuredContent["command_id"], str)
+    assert result.structuredContent["command_id"]
 
 
 def test_send_command_tool_returns_structured_error(
@@ -180,14 +199,16 @@ def test_send_command_tool_returns_structured_error(
 
     assert result.isError is True
     assert result.content == []
-    assert result.structuredContent == {
-        "status": "error",
-        "command": "date",
-        "broadcast": True,
-        "path": "/work",
-        "timeout": 3.0,
-        "output": "boom",
-    }
+    assert result.structuredContent is not None
+    assert result.structuredContent["status"] == "error"
+    assert result.structuredContent["command"] == "date"
+    assert result.structuredContent["broadcast"] is True
+    assert result.structuredContent["path"] == "/work"
+    assert result.structuredContent["timeout"] == 3.0
+    assert result.structuredContent["output"] == "boom"
+    assert result.structuredContent["is_done"] is True
+    assert isinstance(result.structuredContent["command_id"], str)
+    assert result.structuredContent["command_id"]
 
 
 def test_cli_main_runs_mcp_dev_with_project_relative_server(
