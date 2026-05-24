@@ -14,9 +14,9 @@ classifiers = [
 ]
 license = {text = "MIT"}
 dependencies = [
-    "mcp[cli]==1.27.1",
     "iterm2-api-wrapper",
     "pydantic==2.13.4",
+    "fastmcp>=3.3.1",
 ]
 requires-python = ">= 3.12"
 
@@ -53,6 +53,7 @@ homepage = "https://github.com/iLiftALot/pyterm_mcp"
 [project.scripts]
 pyterm_mcp = "pyterm_mcp.main:main"
 pyterm_dev = "pyterm_mcp.cli:app"
+pyterm_test = "pyterm_mcp.auto_cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "packages/iterm2-api-wrapper/tests"]

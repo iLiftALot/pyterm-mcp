@@ -26,7 +26,7 @@ type CommandStatus = Literal[
 ]
 
 
-class ManagedCommandState(BaseModel):
+class CommandState(BaseModel):
     """State returned by command lifecycle/control tools."""
 
     command_id: str = Field(..., description="Opaque command operation id.")

@@ -136,7 +136,7 @@ docs:
 # Clean and rebuild docs
 docs-clean:
     rm -rf docs/_build
-    uv run sphinx-build -b html docs docs/_build
+    @just docs
 
 # Open docs in browser
 docs-open:
