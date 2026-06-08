@@ -50,7 +50,7 @@ extend-select = [
     "UP",   # alert you when better syntax is available in your python version
     "RUF",  # the ruff developer's own rules
 ]
-extend-ignore = [
+ignore = [
     "D",        # ignore missing docs
     "TC",       # false positives for local imports
     "E501",     # line too long
