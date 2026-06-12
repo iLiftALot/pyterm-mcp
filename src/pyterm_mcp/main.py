@@ -4,7 +4,7 @@ import asyncio
 from contextlib import suppress
 from uuid import uuid4
 
-from fastmcp import FastMCP  # , Context
+from fastmcp import FastMCP, Context
 from iterm2.rpc import RPCException
 from iterm2_api_wrapper._logging import PrettyLog
 from iterm2_api_wrapper.client import get_shared_client
@@ -20,15 +20,20 @@ mcp = FastMCP(
 _RUNNING_COMMANDS: dict[str, CommandOperation] = {}
 
 
+def _get_session_id(command_id: str) -> str:
+    return command_id.split(":")[1]
+
+
+def _build_command_id(command_id: str, session_id: str) -> str:
+    return f"{command_id}:{session_id}"
+
+
 async def _interrupt_terminal(*, broadcast: bool) -> None:
     """Send Ctrl-C to the active terminal. Best-effort: never fail control tools."""
     try:
         client = await get_shared_client()
         state = await client.get_state_async()
-        await state.run_command("\x03", broadcast=not broadcast)
-        # await state.session.async_restart()
-        # await state.session.async_stop_coprocess()
-        # await state.session.async_run_coprocess("...")
+        await state.send_escape_sequence("CNTRL_C", "CNTRL_C", broadcast=broadcast)
     except (Exception, RPCException) as e:
         if isinstance(e, RPCException):
             # TODO: Maybe do something here if using `state.session.async_restart()`...?
@@ -47,6 +52,7 @@ def _operation_state(command_id: str) -> CommandState:
             path=None,
             timeout=None,
             command_id=command_id,
+            session_id=_get_session_id(command_id),
             status="not_found",
             output=f"No command operation found for id: {command_id}",
             is_done=True,
@@ -55,6 +61,7 @@ def _operation_state(command_id: str) -> CommandState:
     if not op.task.done():
         return CommandState(
             command_id=op.command_id,
+            session_id=op.session_id,
             status="running",
             command=op.command,
             broadcast=op.broadcast,
@@ -69,6 +76,7 @@ def _operation_state(command_id: str) -> CommandState:
     except asyncio.InvalidStateError:
         return CommandState(
             command_id=command_id,
+            session_id=_get_session_id(command_id),
             status="running",
             command=op.command,
             broadcast=op.broadcast,
@@ -80,6 +88,7 @@ def _operation_state(command_id: str) -> CommandState:
     except asyncio.CancelledError:
         return CommandState(
             command_id=op.command_id,
+            session_id=op.session_id,
             status="cancelled",
             command=op.command,
             broadcast=op.broadcast,
@@ -91,6 +100,7 @@ def _operation_state(command_id: str) -> CommandState:
     except TimeoutError as exc:
         return CommandState(
             command_id=op.command_id,
+            session_id=op.session_id,
             status="timeout",
             command=op.command,
             broadcast=op.broadcast,
@@ -102,6 +112,7 @@ def _operation_state(command_id: str) -> CommandState:
     except Exception as exc:
         return CommandState(
             command_id=op.command_id,
+            session_id=op.session_id,
             status="error",
             command=op.command,
             broadcast=op.broadcast,
@@ -113,6 +124,7 @@ def _operation_state(command_id: str) -> CommandState:
 
     return CommandState(
         command_id=op.command_id,
+        session_id=op.session_id,
         status=result.status,
         command=result.command,
         broadcast=result.broadcast,
@@ -124,15 +136,17 @@ def _operation_state(command_id: str) -> CommandState:
 
 
 def _start_command_operation(
-    command: str, *, path: str | None, broadcast: bool, timeout: float
+    command: str, *, path: str | None, broadcast: bool, timeout: float, ctx: Context
 ) -> CommandState:
-    command_id = uuid4().hex
+    session_id = ctx.session_id
+    command_id = _build_command_id(uuid4().hex, session_id)
     task = asyncio.create_task(
         _send_command(command, path=path, broadcast=broadcast, timeout=timeout),
         name=f"pyterm-mcp:{command_id}",
     )
     _RUNNING_COMMANDS[command_id] = CommandOperation(
         command_id=command_id,
+        session_id=session_id,
         command=command,
         path=path,
         broadcast=broadcast,
@@ -157,7 +171,7 @@ async def _send_command(
             broadcast=broadcast,
             path=path,
             timeout=timeout,
-            output=output.strip() if output else "<no output>",
+            output=output.strip() if output.strip() else "<no output>",
         )
     except Exception as e:
         return CommandResult(
@@ -173,6 +187,7 @@ async def _send_command(
 @mcp.tool(title="Send Command", description="Send a command to the user's terminal.")
 async def send_command(
     command: str,
+    ctx: Context,
     path: str | None = None,
     broadcast: bool = False,
     timeout: float = 10.0,
@@ -186,9 +201,8 @@ async def send_command(
     """
     response_wait = response_timeout if response_timeout is not None else timeout + 1.0
     state = _start_command_operation(
-        command, path=path, broadcast=broadcast, timeout=timeout
+        command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx
     )
-
     op = _RUNNING_COMMANDS[state.command_id]
     done, _ = await asyncio.wait({op.task}, timeout=response_wait)
 
@@ -196,9 +210,9 @@ async def send_command(
         state = _operation_state(state.command_id)
         del op
         return CallToolResult(
-            content=[TextContent(type="text", text=state.output)]
-            if state.status == "success"
-            else [],
+            content=[TextContent(type="text", text=state.output)],
+            # if state.status == "success"
+            # else [],
             structuredContent=state.model_dump(),
             isError=(state.status != "success"),
         )
@@ -222,7 +236,11 @@ async def send_command(
     title="Start Command", description="Start a terminal command and return a command id."
 )
 async def start_command(
-    command: str, path: str | None = None, broadcast: bool = False, timeout: float = 10.0
+    command: str,
+    ctx: Context,
+    path: str | None = None,
+    broadcast: bool = False,
+    timeout: float = 10.0,
 ) -> CommandState:
     """
     Start a command without waiting for completion.
@@ -230,8 +248,9 @@ async def start_command(
     Use this when a command may hang, produce delayed output, or need user-controlled
     cancellation/resend behavior.
     """
+    # TODO: ctx.session_id
     return _start_command_operation(
-        command, path=path, broadcast=broadcast, timeout=timeout
+        command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx
     )
 
 
@@ -244,7 +263,7 @@ async def get_command_status(command_id: str) -> CommandState:
 
 
 @mcp.tool(title="Cancel Command", description="Cancel a running terminal command.")
-async def cancel_command(command_id: str | None = None) -> CommandState:
+async def cancel_command(ctx: Context, command_id: str | None = None) -> CommandState:
     """
     Cancel a running command.
 
@@ -255,10 +274,11 @@ async def cancel_command(command_id: str | None = None) -> CommandState:
         cmd_ids = list(_RUNNING_COMMANDS)
 
         for cmd_id in cmd_ids:
-            await cancel_command(cmd_id)
+            await cancel_command(ctx, cmd_id)
 
         return CommandState(
             command=None,
+            session_id=ctx.session_id,
             broadcast=False,
             path=None,
             timeout=None,
@@ -286,7 +306,7 @@ async def cancel_command(command_id: str | None = None) -> CommandState:
 
 
 @mcp.tool(title="Resend Command", description="Cancel and resend a previous command.")
-async def resend_command(command_id: str, cancel_existing: bool = True) -> CommandState:
+async def resend_command(ctx: Context, command_id: str, cancel_existing: bool = True) -> CommandState:
     """
     Resend a command using the original command/path/broadcast/timeout settings.
 
@@ -297,10 +317,10 @@ async def resend_command(command_id: str, cancel_existing: bool = True) -> Comma
         return _operation_state(command_id)
 
     if cancel_existing and not op.task.done():
-        await cancel_command(command_id)
+        await cancel_command(ctx, command_id)
 
     return _start_command_operation(
-        op.command, path=op.path, broadcast=op.broadcast, timeout=op.timeout
+        op.command, path=op.path, broadcast=op.broadcast, timeout=op.timeout, ctx=ctx
     )
 
 

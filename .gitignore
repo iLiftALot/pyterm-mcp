@@ -234,9 +234,13 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-environment.toml
 skills-lock.json
-.agents
+.agents/
 *.whl
 *.tar.gz
 tests/_dev.py
+.super-agents/
+AGENTS.md
+CLAUDE.md
+.codex/tools/
+.codex/bin/

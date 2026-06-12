@@ -30,6 +30,7 @@ class CommandState(BaseModel):
     """State returned by command lifecycle/control tools."""
 
     command_id: str = Field(..., description="Opaque command operation id.")
+    session_id: str = Field(..., description="Opaque session operation id.")
     status: CommandStatus = Field(..., description="Current command operation status.")
     command: str | None = Field(
         None, description="Command associated with this operation."
@@ -46,6 +47,7 @@ class CommandState(BaseModel):
 @dataclass(slots=True)
 class CommandOperation:
     command_id: str
+    session_id: str
     command: str
     path: str | None
     broadcast: bool
