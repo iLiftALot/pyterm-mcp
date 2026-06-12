@@ -4,7 +4,7 @@ import asyncio
 from contextlib import suppress
 from uuid import uuid4
 
-from fastmcp import FastMCP, Context
+from fastmcp import Context, FastMCP
 from iterm2.rpc import RPCException
 from iterm2_api_wrapper._logging import PrettyLog
 from iterm2_api_wrapper.client import get_shared_client
@@ -306,7 +306,9 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
 
 @mcp.tool(title="Resend Command", description="Cancel and resend a previous command.")
-async def resend_command(ctx: Context, command_id: str, cancel_existing: bool = True) -> CommandState:
+async def resend_command(
+    ctx: Context, command_id: str, cancel_existing: bool = True
+) -> CommandState:
     """
     Resend a command using the original command/path/broadcast/timeout settings.
 

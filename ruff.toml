@@ -35,10 +35,9 @@ exclude = [
     "cpython-3.13.9-macos-aarch64-none"
 ]
 include = [
-    "**{src,tests}/**/*.py",
-    "**{src,tests}/**/*.ipynb"
+    "src/**/*.py",
+    "tests/**/*.py"
 ]
-builtins = ["ic"]
 
 [lint]
 extend-select = [
@@ -74,7 +73,7 @@ lines-after-imports = 2
 
 [format]
 line-ending = "auto"
-docstring-code-line-length = 90
+docstring-code-line-length = 120
 docstring-code-format = true
 quote-style = "double"
 indent-style = "space"

@@ -20,21 +20,21 @@ def _run_cmd(
     check: bool | None = None,
     cwd: str = str(main_file.parents[2]),
     stdout: int | IO[Any] | None = None,
-    stderr: int | IO[Any] | None = None
+    stderr: int | IO[Any] | None = None,
 ):
     args_formatted: list[str] | str = (
         arg_string if shell is True else shlex.split(arg_string)
     )
-    kwargs = {
-        "shell": shell,
-        "check": check if check is not None else not shell,
-        "stdout": stdout,
-        "stderr": stderr,
-        "cwd": cwd,
-    }
 
     try:
-        subprocess.run(args_formatted, **kwargs)
+        subprocess.run(
+            args_formatted,
+            shell=shell,
+            check=check if check is not None else not shell,
+            cwd=cwd,
+            stdout=stdout,
+            stderr=stderr,
+        )
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Error:[/red] {e}")
     except KeyboardInterrupt:

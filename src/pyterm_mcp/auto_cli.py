@@ -10,13 +10,20 @@ from typing import Annotated
 
 import cyclopts
 import mcp.types
-from rich.console import Console
-
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
+from rich.console import Console
+
 
 # Modify this to change how the CLI connects to the MCP server.
-CLIENT_SPEC = StdioTransport(command='fastmcp', args=['run', '/Users/nicholascorbin/CodeProjects/pyterm-mcp/src/pyterm_mcp/main.py', '--no-banner'])
+CLIENT_SPEC = StdioTransport(
+    command="fastmcp",
+    args=[
+        "run",
+        "/Users/nicholascorbin/CodeProjects/pyterm-mcp/src/pyterm_mcp/main.py",
+        "--no-banner",
+    ],
+)
 
 app = cyclopts.App(name="pyterm_test", help="CLI for main MCP server")
 app.register_install_completion_command()
@@ -117,7 +124,9 @@ async def list_resources() -> None:
 
 
 @app.command
-async def read_resource(uri: Annotated[str, cyclopts.Parameter(help="Resource URI")]) -> None:
+async def read_resource(
+    uri: Annotated[str, cyclopts.Parameter(help="Resource URI")],
+) -> None:
     """Read a resource by URI."""
     async with Client(CLIENT_SPEC) as client:
         contents = await client.read_resource(uri)
@@ -150,14 +159,15 @@ async def list_prompts() -> None:
 
 @app.command
 async def get_prompt(
-    name: Annotated[str, cyclopts.Parameter(help="Prompt name")],
-    *arguments: str,
+    name: Annotated[str, cyclopts.Parameter(help="Prompt name")], *arguments: str
 ) -> None:
     """Get a prompt by name. Pass arguments as key=value pairs."""
     parsed: dict[str, str] = {}
     for arg in arguments:
         if "=" not in arg:
-            console.print(f"[bold red]Error:[/bold red] Invalid argument {arg!r} — expected key=value")
+            console.print(
+                f"[bold red]Error:[/bold red] Invalid argument {arg!r} — expected key=value"
+            )
             sys.exit(1)
         key, value = arg.split("=", 1)
         parsed[key] = value
@@ -170,7 +180,9 @@ async def get_prompt(
                 console.print(f"  {msg.content.text}")
             elif isinstance(msg.content, mcp.types.ImageContent):
                 size = len(msg.content.data) * 3 // 4
-                console.print(f"  [dim][Image: {msg.content.mimeType}, ~{size} bytes][/dim]")
+                console.print(
+                    f"  [dim][Image: {msg.content.mimeType}, ~{size} bytes][/dim]"
+                )
             else:
                 console.print(f"  {msg.content}")
             console.print()
@@ -180,74 +192,116 @@ async def get_prompt(
 # Tool commands (generated from server schema)
 # ---------------------------------------------------------------------------
 
-@call_tool_app.command(name='send_command')
+
+@call_tool_app.command(name="send_command")
 async def send_command(
     *,
     command: Annotated[str, cyclopts.Parameter(help="")],
-    path: Annotated[str | None, cyclopts.Parameter(help="JSON Schema: {\n                            \"anyOf\": [\n                              {\n                                \"type\": \"string\"\n                              },\n                              {\n                                \"type\": \"null\"\n                              }\n                            ],\n                            \"default\": null\n                          }")] = None,
+    path: Annotated[
+        str | None,
+        cyclopts.Parameter(
+            help='JSON Schema: {\n                            "anyOf": [\n                              {\n                                "type": "string"\n                              },\n                              {\n                                "type": "null"\n                              }\n                            ],\n                            "default": null\n                          }'
+        ),
+    ] = None,
     broadcast: Annotated[bool, cyclopts.Parameter(help="")] = False,
     timeout: Annotated[float, cyclopts.Parameter(help="")] = 10.0,
-    response_timeout: Annotated[str | None, cyclopts.Parameter(help="JSON Schema: {\n                            \"anyOf\": [\n                              {\n                                \"type\": \"number\"\n                              },\n                              {\n                                \"type\": \"null\"\n                              }\n                            ],\n                            \"default\": null\n                          }")] = None,
+    response_timeout: Annotated[
+        str | None,
+        cyclopts.Parameter(
+            help='JSON Schema: {\n                            "anyOf": [\n                              {\n                                "type": "number"\n                              },\n                              {\n                                "type": "null"\n                              }\n                            ],\n                            "default": null\n                          }'
+        ),
+    ] = None,
 ) -> None:
-    '''Send a command to the user\'s terminal.'''
+    """Send a command to the user\'s terminal."""
     # Parse JSON parameters
     path_parsed = json.loads(path) if isinstance(path, str) else path
-    response_timeout_parsed = json.loads(response_timeout) if isinstance(response_timeout, str) else response_timeout
+    response_timeout_parsed = (
+        json.loads(response_timeout)
+        if isinstance(response_timeout, str)
+        else response_timeout
+    )
 
-    await _call_tool('send_command', {'command': command, 'path': path_parsed, 'broadcast': broadcast, 'timeout': timeout, 'response_timeout': response_timeout_parsed})
+    await _call_tool(
+        "send_command",
+        {
+            "command": command,
+            "path": path_parsed,
+            "broadcast": broadcast,
+            "timeout": timeout,
+            "response_timeout": response_timeout_parsed,
+        },
+    )
 
 
-@call_tool_app.command(name='start_command')
+@call_tool_app.command(name="start_command")
 async def start_command(
     *,
     command: Annotated[str, cyclopts.Parameter(help="")],
-    path: Annotated[str | None, cyclopts.Parameter(help="JSON Schema: {\n                            \"anyOf\": [\n                              {\n                                \"type\": \"string\"\n                              },\n                              {\n                                \"type\": \"null\"\n                              }\n                            ],\n                            \"default\": null\n                          }")] = None,
+    path: Annotated[
+        str | None,
+        cyclopts.Parameter(
+            help='JSON Schema: {\n                            "anyOf": [\n                              {\n                                "type": "string"\n                              },\n                              {\n                                "type": "null"\n                              }\n                            ],\n                            "default": null\n                          }'
+        ),
+    ] = None,
     broadcast: Annotated[bool, cyclopts.Parameter(help="")] = False,
     timeout: Annotated[float, cyclopts.Parameter(help="")] = 10.0,
 ) -> None:
-    '''Start a terminal command and return a command id.'''
+    """Start a terminal command and return a command id."""
     # Parse JSON parameters
     path_parsed = json.loads(path) if isinstance(path, str) else path
 
-    await _call_tool('start_command', {'command': command, 'path': path_parsed, 'broadcast': broadcast, 'timeout': timeout})
+    await _call_tool(
+        "start_command",
+        {
+            "command": command,
+            "path": path_parsed,
+            "broadcast": broadcast,
+            "timeout": timeout,
+        },
+    )
 
 
-@call_tool_app.command(name='get_command_status')
+@call_tool_app.command(name="get_command_status")
 async def get_command_status(
-    *,
-    command_id: Annotated[str, cyclopts.Parameter(help="")],
+    *, command_id: Annotated[str, cyclopts.Parameter(help="")]
 ) -> None:
-    '''Get the status/output for a started command.'''
-    await _call_tool('get_command_status', {'command_id': command_id})
+    """Get the status/output for a started command."""
+    await _call_tool("get_command_status", {"command_id": command_id})
 
 
-@call_tool_app.command(name='cancel_command')
+@call_tool_app.command(name="cancel_command")
 async def cancel_command(
     *,
-    command_id: Annotated[str, cyclopts.Parameter(help="JSON Schema: {\n                            \"anyOf\": [\n                              {\n                                \"type\": \"string\"\n                              },\n                              {\n                                \"type\": \"null\"\n                              }\n                            ]\n                          }")],
+    command_id: Annotated[
+        str,
+        cyclopts.Parameter(
+            help='JSON Schema: {\n                            "anyOf": [\n                              {\n                                "type": "string"\n                              },\n                              {\n                                "type": "null"\n                              }\n                            ]\n                          }'
+        ),
+    ],
 ) -> None:
-    '''Cancel a running terminal command.'''
+    """Cancel a running terminal command."""
     # Parse JSON parameters
     # command_id_parsed = json.loads(command_id) if isinstance(command_id, str) else command_id
 
-    await _call_tool('cancel_command', {'command_id': command_id})
+    await _call_tool("cancel_command", {"command_id": command_id})
 
 
-@call_tool_app.command(name='resend_command')
+@call_tool_app.command(name="resend_command")
 async def resend_command(
     *,
     command_id: Annotated[str, cyclopts.Parameter(help="")],
     cancel_existing: Annotated[bool, cyclopts.Parameter(help="")] = True,
 ) -> None:
-    '''Cancel and resend a previous command.'''
-    await _call_tool('resend_command', {'command_id': command_id, 'cancel_existing': cancel_existing})
+    """Cancel and resend a previous command."""
+    await _call_tool(
+        "resend_command", {"command_id": command_id, "cancel_existing": cancel_existing}
+    )
 
 
-@call_tool_app.command(name='test_elicitation')
-async def test_elicitation(
-) -> None:
-    ''''''
-    await _call_tool('test_elicitation', {})
+@call_tool_app.command(name="test_elicitation")
+async def test_elicitation() -> None:
+    """"""
+    await _call_tool("test_elicitation", {})
 
 
 if __name__ == "__main__":

@@ -13,16 +13,11 @@ list:
     @just --list
 
 format:
-    uv run --active --python=3.12 --group dev ruff format .
+    uv run --active --python=3.12 --group dev ruff format --verbose . 2&>/dev/null | rg --pcre2 "(?!^\[\d{4})(.*)" --only-matching --colors=match:none --colors=path:fg:green --colors=highlight:none
 
 lint:
-    uv run --active --python=3.12 --group dev ruff check . --fix
-    uv run --active --python=3.12 --group dev ruff check --select I --fix .
-    uv run --active --python=3.12 --group dev ty check ./src
-
-    uv run --active --python=3.12 --group dev ruff check ./packages/iterm2-api-wrapper/src/iterm2_api_wrapper --fix
-    uv run --active --python=3.12 --group dev ruff check --select I --fix ./packages/iterm2-api-wrapper/src/iterm2_api_wrapper
-    uv run --active --python=3.12 --group dev ty check ./packages/iterm2-api-wrapper/src/iterm2_api_wrapper
+    # uv run --active --python=3.12 --group dev ty check ./src
+    uv run --active --python=3.12 --group dev ruff check --fix --show-fixes --no-force-exclude --verbose . 2&>/dev/null | rg --pcre2 "(?!^\[\d{4})(.*)" --only-matching --colors=match:none --colors=path:fg:green --colors=highlight:none
 
 # Run all the formatting, linting, and testing commands
 qa:
