@@ -32,6 +32,8 @@ def _build_command_id(command_id: str, session_id: str) -> str:
 def _configure_status(status: CommandExecutionStatus | None) -> CommandStatus:
     if status is None:
         return "unknown (Shell-Integration Disabled)"
+    if status.timed_out is True:
+        return "timeout"
     return "success" if status.succeeded else "error"
 
 
