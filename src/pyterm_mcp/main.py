@@ -7,8 +7,7 @@ from uuid import uuid4
 from fastmcp import Context, FastMCP
 from iterm2.rpc import RPCException
 from iterm2_api_wrapper._logging import PrettyLog
-from iterm2_api_wrapper.client import get_shared_client
-from iterm2_api_wrapper.typings import CommandExecutionStatus
+from iterm2_api_wrapper import get_shared_client, iTermState, CommandExecutionStatus
 from mcp.types import CallToolResult, TextContent
 
 from pyterm_mcp.types import CommandOperation, CommandResult, CommandState, CommandStatus
@@ -19,6 +18,12 @@ mcp = FastMCP(
     instructions="A tool to interact with the user's terminal. Use this tool to run commands in the user's environment and get the output.",
 )
 _RUNNING_COMMANDS: dict[str, CommandOperation] = {}
+
+
+async def _get_state(ctx: Context) -> iTermState:
+    client = await get_shared_client(service_name="pyterm-mcp", extra_id=ctx.session_id)
+    state = await client.get_state_async()
+    return state
 
 
 def _parse_session_id(command_id: str) -> str:
@@ -37,11 +42,10 @@ def _configure_status(status: CommandExecutionStatus | None) -> CommandStatus:
     return "success" if status.succeeded else "error"
 
 
-async def _interrupt_terminal(*, broadcast: bool) -> None:
+async def _interrupt_terminal(*, broadcast: bool, ctx: Context) -> None:
     """Send Ctrl-C to the active terminal. Best-effort: never fail control tools."""
     try:
-        client = await get_shared_client()
-        state = await client.get_state_async()
+        state = await _get_state(ctx)
         await state.send_escape_sequence("CNTRL_C", "CNTRL_C", broadcast=broadcast)
     except Exception as e:
         if isinstance(e, RPCException):
@@ -168,8 +172,7 @@ def _start_command_operation(
 async def _send_command(
     command, *, path=None, broadcast=False, timeout=10.0, ctx: Context
 ) -> CommandResult:
-    client = await get_shared_client(service_name="pyterm-mcp", extra_id=ctx.session_id)
-    state = await client.get_state_async()
+    state = await _get_state(ctx)
     try:
         output = await state.run_command(
             command=command, broadcast=broadcast, path=path, timeout=timeout
@@ -219,7 +222,7 @@ async def send_command(
 
     if done:
         state = _operation_state(state.command_id)
-        del op
+        _RUNNING_COMMANDS.pop(state.command_id, None)
         return CallToolResult(
             content=[TextContent(type="text", text=state.output)],
             structuredContent=state.model_dump(),
@@ -306,12 +309,12 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
     if not op.task.done():
         op.task.cancel()
-        await _interrupt_terminal(broadcast=op.broadcast)
+        await _interrupt_terminal(broadcast=op.broadcast, ctx=ctx)
 
         with suppress(asyncio.CancelledError):
             await op.task
 
-    del op
+    _RUNNING_COMMANDS.pop(command_id, None)
     return _operation_state(command_id)
 
 
