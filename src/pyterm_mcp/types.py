@@ -5,8 +5,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+type CommandStatus = Literal[
+    "running", "success", "error", "unknown (Shell-Integration Disabled)", "timeout", "cancelled", "not_found"
+]
+
+
 class CommandResult(BaseModel):
-    status: Literal["success", "error"] = Field(
+    status: CommandStatus = Field(
         ...,
         description="The status of the command execution, either 'success' or 'error'.",
     )
@@ -19,11 +24,6 @@ class CommandResult(BaseModel):
     )
     timeout: float = Field(..., description="The timeout for the command execution.")
     output: str = Field(..., description="The output of the command execution.")
-
-
-type CommandStatus = Literal[
-    "running", "success", "error", "timeout", "cancelled", "not_found"
-]
 
 
 class CommandState(BaseModel):

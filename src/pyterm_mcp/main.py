@@ -8,9 +8,10 @@ from fastmcp import Context, FastMCP
 from iterm2.rpc import RPCException
 from iterm2_api_wrapper._logging import PrettyLog
 from iterm2_api_wrapper.client import get_shared_client
+from iterm2_api_wrapper.typings import CommandExecutionStatus
 from mcp.types import CallToolResult, TextContent
 
-from pyterm_mcp.types import CommandOperation, CommandResult, CommandState
+from pyterm_mcp.types import CommandOperation, CommandResult, CommandState, CommandStatus
 
 
 mcp = FastMCP(
@@ -20,12 +21,18 @@ mcp = FastMCP(
 _RUNNING_COMMANDS: dict[str, CommandOperation] = {}
 
 
-def _get_session_id(command_id: str) -> str:
+def _parse_session_id(command_id: str) -> str:
     return command_id.split(":")[1]
 
 
 def _build_command_id(command_id: str, session_id: str) -> str:
     return f"{command_id}:{session_id}"
+
+
+def _configure_status(status: CommandExecutionStatus | None) -> CommandStatus:
+    if status is None:
+        return "unknown (Shell-Integration Disabled)"
+    return "success" if status.succeeded else "error"
 
 
 async def _interrupt_terminal(*, broadcast: bool) -> None:
@@ -34,7 +41,7 @@ async def _interrupt_terminal(*, broadcast: bool) -> None:
         client = await get_shared_client()
         state = await client.get_state_async()
         await state.send_escape_sequence("CNTRL_C", "CNTRL_C", broadcast=broadcast)
-    except (Exception, RPCException) as e:
+    except Exception as e:
         if isinstance(e, RPCException):
             # TODO: Maybe do something here if using `state.session.async_restart()`...?
             # `state.session.async_restart()` throws `RPCException` if something goes wrong.
@@ -52,7 +59,7 @@ def _operation_state(command_id: str) -> CommandState:
             path=None,
             timeout=None,
             command_id=command_id,
-            session_id=_get_session_id(command_id),
+            session_id=_parse_session_id(command_id),
             status="not_found",
             output=f"No command operation found for id: {command_id}",
             is_done=True,
@@ -76,7 +83,7 @@ def _operation_state(command_id: str) -> CommandState:
     except asyncio.InvalidStateError:
         return CommandState(
             command_id=command_id,
-            session_id=_get_session_id(command_id),
+            session_id=_parse_session_id(command_id),
             status="running",
             command=op.command,
             broadcast=op.broadcast,
@@ -141,7 +148,7 @@ def _start_command_operation(
     session_id = ctx.session_id
     command_id = _build_command_id(uuid4().hex, session_id)
     task = asyncio.create_task(
-        _send_command(command, path=path, broadcast=broadcast, timeout=timeout),
+        _send_command(command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx),
         name=f"pyterm-mcp:{command_id}",
     )
     _RUNNING_COMMANDS[command_id] = CommandOperation(
@@ -157,21 +164,23 @@ def _start_command_operation(
 
 
 async def _send_command(
-    command, path=None, broadcast=False, timeout=10.0
+    command, *, path=None, broadcast=False, timeout=10.0, ctx: Context
 ) -> CommandResult:
-    client = await get_shared_client()
+    client = await get_shared_client(service_name="pyterm-mcp", extra_id=ctx.session_id)
     state = await client.get_state_async()
     try:
         output = await state.run_command(
             command=command, broadcast=broadcast, path=path, timeout=timeout
         )
         return CommandResult(
-            status="success",
-            command=command,
+            status=_configure_status(output.status),
+            command=output.status.command
+            if output.status and output.status.command
+            else command,
             broadcast=broadcast,
             path=path,
             timeout=timeout,
-            output=output.strip() if output.strip() else "<no output>",
+            output=output.output,
         )
     except Exception as e:
         return CommandResult(
@@ -211,8 +220,6 @@ async def send_command(
         del op
         return CallToolResult(
             content=[TextContent(type="text", text=state.output)],
-            # if state.status == "success"
-            # else [],
             structuredContent=state.model_dump(),
             isError=(state.status != "success"),
         )
@@ -248,7 +255,6 @@ async def start_command(
     Use this when a command may hang, produce delayed output, or need user-controlled
     cancellation/resend behavior.
     """
-    # TODO: ctx.session_id
     return _start_command_operation(
         command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx
     )
@@ -264,11 +270,14 @@ async def get_command_status(command_id: str) -> CommandState:
 
 @mcp.tool(title="Cancel Command", description="Cancel a running terminal command.")
 async def cancel_command(ctx: Context, command_id: str | None = None) -> CommandState:
-    """
-    Cancel a running command.
+    """Cancel a running command.
 
-    If interrupt_terminal is true, PyTerm-MCP also sends Ctrl-C to the terminal as a
-    best-effort attempt to stop the shell process.
+    ---
+
+    :param command_id: The ID of the running command. If ``None``, cancels all running commands, defaults to None
+    :type command_id: ``str | None``, optional
+    :return: State returned by command lifecycle/control tools.
+    :rtype: :class:`CommandState`
     """
     if command_id is None:
         cmd_ids = list(_RUNNING_COMMANDS)
@@ -295,7 +304,6 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
     if not op.task.done():
         op.task.cancel()
-
         await _interrupt_terminal(broadcast=op.broadcast)
 
         with suppress(asyncio.CancelledError):

@@ -36,6 +36,14 @@ class DummyClient:
         return self.state
 
 
+class DummyContext:
+    session_id = "test-session"
+
+
+def fake_context() -> Any:
+    return DummyContext()
+
+
 @pytest.fixture(autouse=True)
 def clear_running_commands() -> Iterator[None]:
     pyterm_main._RUNNING_COMMANDS.clear()
@@ -84,7 +92,7 @@ def test_send_command_helper_returns_stripped_success(
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
     result = asyncio.run(
-        pyterm_main._send_command("echo hi", path="/tmp", broadcast=True, timeout=2.5)
+        pyterm_main._send_command("echo hi", path="/tmp", broadcast=True, timeout=2.5, ctx=fake_context())
     )
 
     assert result == CommandResult(
@@ -110,7 +118,7 @@ def test_send_command_helper_uses_no_output_placeholder(
 
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
-    result = asyncio.run(pyterm_main._send_command("true"))
+    result = asyncio.run(pyterm_main._send_command("true", ctx=fake_context()))
 
     assert result.status == "success"
     assert result.output == "<no output>"
@@ -126,7 +134,7 @@ def test_send_command_helper_returns_error_result(
 
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
-    result = asyncio.run(pyterm_main._send_command("pwd", timeout=0.5))
+    result = asyncio.run(pyterm_main._send_command("pwd", timeout=0.5, ctx=fake_context()))
 
     assert result == CommandResult(
         status="error",
@@ -156,7 +164,9 @@ def test_send_command_tool_returns_text_content_on_success(
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
     result = asyncio.run(
-        pyterm_main.send_command("date", path=None, broadcast=False, timeout=3.0)
+        pyterm_main.send_command(
+            "date", fake_context(), path=None, broadcast=False, timeout=3.0
+        )
     )
 
     assert result.isError is False
@@ -194,11 +204,15 @@ def test_send_command_tool_returns_structured_error(
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
     result = asyncio.run(
-        pyterm_main.send_command("date", path="/work", broadcast=True, timeout=3.0)
+        pyterm_main.send_command(
+            "date", fake_context(), path="/work", broadcast=True, timeout=3.0
+        )
     )
 
     assert result.isError is True
-    assert result.content == []
+    assert len(result.content) == 1
+    assert result.content[0].type == "text"
+    assert result.content[0].text == "boom"
     assert result.structuredContent is not None
     assert result.structuredContent["status"] == "error"
     assert result.structuredContent["command"] == "date"
@@ -211,38 +225,42 @@ def test_send_command_tool_returns_structured_error(
     assert result.structuredContent["command_id"]
 
 
-def test_cli_main_runs_mcp_dev_with_project_relative_server(
+def test_cli_inspect_runs_fastmcp_dev_with_project_relative_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[dict[str, Any]] = []
-    printed: list[str] = []
 
-    def fake_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        calls.append({"command": command, **kwargs})
-        return subprocess.CompletedProcess(command, 0, stdout="server ready\n", stderr="")
+    def fake_run_cmd(arg_string: str, **kwargs: Any) -> None:
+        calls.append({"arg_string": arg_string, **kwargs})
 
-    monkeypatch.setattr(cli.subprocess, "run", fake_run)
-    monkeypatch.setattr(cli.console, "print", lambda value: printed.append(str(value)))
+    monkeypatch.setattr(cli, "_run_cmd", fake_run_cmd)
     monkeypatch.chdir(Path(__file__).resolve().parents[1])
 
-    cli.main()
+    cli.inspect()
 
     assert calls == [
         {
-            "command": ["mcp", "dev", "src/pyterm_mcp/main.py"],
-            "capture_output": True,
-            "text": True,
-            "check": True,
-            "cwd": str(Path(__file__).resolve().parents[1]),
-        }
+            "arg_string": "lsof -ti :6274 | xargs kill -9",
+            "shell": True,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        },
+        {
+            "arg_string": "lsof -ti :6277 | xargs kill -9",
+            "shell": True,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        },
+        {"arg_string": "fastmcp dev inspector src/pyterm_mcp/main.py"},
     ]
-    assert printed == ["server ready\n"]
 
 
-def test_cli_main_prints_subprocess_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_cmd_prints_subprocess_error(monkeypatch: pytest.MonkeyPatch) -> None:
     printed: list[str] = []
 
-    def fake_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    def fake_run(
+        command: list[str] | str, **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
         raise subprocess.CalledProcessError(
             2, command, output="stdout text", stderr="stderr text"
         )
@@ -251,6 +269,8 @@ def test_cli_main_prints_subprocess_error(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(cli.console, "print", lambda value: printed.append(str(value)))
     monkeypatch.chdir(Path(__file__).resolve().parents[1])
 
-    cli.main()
+    cli._run_cmd("mcp dev src/pyterm_mcp/main.py")
 
-    assert printed == ["[red]Error:[/red] stderr text\nstdout text"]
+    assert printed == [
+        "[red]Error:[/red] Command '['mcp', 'dev', 'src/pyterm_mcp/main.py']' returned non-zero exit status 2."
+    ]
