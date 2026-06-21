@@ -10,10 +10,10 @@ from typing import Annotated
 
 import cyclopts
 import mcp.types
-from fastmcp import Client
-from fastmcp.client.transports import StdioTransport
 from rich.console import Console
 
+from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 
 # Modify this to change how the CLI connects to the MCP server.
 CLIENT_SPEC = StdioTransport(
@@ -273,17 +273,19 @@ async def get_command_status(
 async def cancel_command(
     *,
     command_id: Annotated[
-        str,
+        str | None,
         cyclopts.Parameter(
-            help='JSON Schema: {\n                            "anyOf": [\n                              {\n                                "type": "string"\n                              },\n                              {\n                                "type": "null"\n                              }\n                            ]\n                          }'
+            help='The ID of the running command. If ``None``, cancels all running commands, defaults to None\\nJSON Schema: {\n                            "anyOf": [\n                              {\n                                "type": "string"\n                              },\n                              {\n                                "type": "null"\n                              }\n                            ],\n                            "default": null,\n                            "description": "The ID of the running command. If ``None``, cancels all running commands, defaults to None"\n                          }'
         ),
-    ],
+    ] = None,
 ) -> None:
     """Cancel a running terminal command."""
     # Parse JSON parameters
-    # command_id_parsed = json.loads(command_id) if isinstance(command_id, str) else command_id
+    command_id_parsed = (
+        json.loads(command_id) if isinstance(command_id, str) else command_id
+    )
 
-    await _call_tool("cancel_command", {"command_id": command_id})
+    await _call_tool("cancel_command", {"command_id": command_id_parsed})
 
 
 @call_tool_app.command(name="resend_command")
@@ -296,12 +298,6 @@ async def resend_command(
     await _call_tool(
         "resend_command", {"command_id": command_id, "cancel_existing": cancel_existing}
     )
-
-
-@call_tool_app.command(name="test_elicitation")
-async def test_elicitation() -> None:
-    """"""
-    await _call_tool("test_elicitation", {})
 
 
 if __name__ == "__main__":
