@@ -245,3 +245,4 @@ CLAUDE.md
 .codex/tools/
 .codex/bin/
 assets/*
+trace
