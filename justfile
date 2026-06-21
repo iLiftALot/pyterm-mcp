@@ -75,10 +75,7 @@ build:
     uv build-backend build-wheel .
     uv build-backend build-editable .
     uv sync --active
-
-build-install:
-    @just build
-    uv tool uninstall iterm2_api_wrapper 2>/dev/null || echo "Not yet installed."
+    uv tool uninstall iterm2_api_wrapper 2>/dev/null || echo "❌ '{{BOLD + ITALIC + RED}}iterm2_api_wrapper{{NORMAL}}' {{RED}}executable is {{UNDERLINE + BOLD}}not yet installed{{NORMAL}}.\n⏳{{GREEN}}Installing now...{{NORMAL}}"
     uv tool install . --editable
 
 VERSION := "$(uv version --active --short)"
