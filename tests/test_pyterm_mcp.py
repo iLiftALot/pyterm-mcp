@@ -76,9 +76,7 @@ def command_status(
     exit_code: CommandExitCode | int = CommandExitCode.SUCCESS,
     timed_out: bool = False,
 ) -> CommandExecutionStatus:
-    return CommandExecutionStatus(
-        prompt_id="prompt-1", command=command, exit_code=exit_code, timed_out=timed_out
-    )
+    return CommandExecutionStatus(prompt_id="prompt-1", command=command, exit_code=exit_code, timed_out=timed_out)
 
 
 def execution_result(
@@ -91,9 +89,7 @@ def execution_result(
 
 
 async def cancel_pending_operations() -> None:
-    pending = [
-        op.task for op in pyterm_main._RUNNING_COMMANDS.values() if not op.task.done()
-    ]
+    pending = [op.task for op in pyterm_main._RUNNING_COMMANDS.values() if not op.task.done()]
     for task in pending:
         task.cancel()
     for task in pending:
@@ -124,9 +120,7 @@ def clear_running_commands() -> Iterator[None]:
 def test_command_result_accepts_current_status_values(
     status: pyterm_main.CommandStatus,
 ) -> None:
-    result = CommandResult(
-        status=status, command="pwd", broadcast=False, path=None, timeout=1.0, output="ok"
-    )
+    result = CommandResult(status=status, command="pwd", broadcast=False, path=None, timeout=1.0, output="ok")
 
     assert result.model_dump() == {
         "status": status,
@@ -203,11 +197,7 @@ def test_configure_status_maps_wrapper_execution_status(
 def test_send_command_helper_uses_wrapper_output_and_reported_command(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    state = DummyState(
-        result=execution_result(
-            " hello from terminal \n", command_status(command="echo actual")
-        )
-    )
+    state = DummyState(result=execution_result(" hello from terminal \n", command_status(command="echo actual")))
 
     async def fake_get_shared_client(**kwargs: Any) -> DummyClient:
         return DummyClient(state)
@@ -215,9 +205,7 @@ def test_send_command_helper_uses_wrapper_output_and_reported_command(
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
     result = asyncio.run(
-        pyterm_main._send_command(
-            "echo hi", path="/tmp", broadcast=True, timeout=2.5, ctx=fake_context()
-        )
+        pyterm_main._send_command("echo hi", path="/tmp", broadcast=True, timeout=2.5, ctx=fake_context())
     )
 
     assert result == CommandResult(
@@ -228,9 +216,7 @@ def test_send_command_helper_uses_wrapper_output_and_reported_command(
         timeout=2.5,
         output=" hello from terminal \n",
     )
-    assert state.calls == [
-        {"command": "echo hi", "broadcast": True, "path": "/tmp", "timeout": 2.5}
-    ]
+    assert state.calls == [{"command": "echo hi", "broadcast": True, "path": "/tmp", "timeout": 2.5}]
 
 
 def test_send_command_helper_falls_back_to_requested_command_when_status_has_no_command(
@@ -275,9 +261,7 @@ def test_send_command_helper_returns_error_result(
 
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
-    result = asyncio.run(
-        pyterm_main._send_command("pwd", timeout=0.5, ctx=fake_context())
-    )
+    result = asyncio.run(pyterm_main._send_command("pwd", timeout=0.5, ctx=fake_context()))
 
     assert result == CommandResult(
         status="error",
@@ -332,11 +316,7 @@ def test_send_command_tool_returns_text_content_on_success(
 
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-    result = asyncio.run(
-        pyterm_main.send_command(
-            "date", fake_context(), path=None, broadcast=False, timeout=3.0
-        )
-    )
+    result = asyncio.run(pyterm_main.send_command("date", fake_context(), path=None, broadcast=False, timeout=3.0))
 
     assert result.isError is False
     assert len(result.content) == 1
@@ -373,11 +353,7 @@ def test_send_command_tool_returns_structured_error(
 
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-    result = asyncio.run(
-        pyterm_main.send_command(
-            "date", fake_context(), path="/work", broadcast=True, timeout=3.0
-        )
-    )
+    result = asyncio.run(pyterm_main.send_command("date", fake_context(), path="/work", broadcast=True, timeout=3.0))
 
     assert result.isError is True
     assert len(result.content) == 1
@@ -512,9 +488,7 @@ def test_operation_state_maps_terminal_task_failures(
     asyncio.run(scenario())
 
 
-def test_get_command_status_reports_missing_well_formed_id_and_rejects_malformed_id() -> (
-    None
-):
+def test_get_command_status_reports_missing_well_formed_id_and_rejects_malformed_id() -> None:
     missing = asyncio.run(pyterm_main.get_command_status("missing:test-session"))
 
     assert missing.status == "not_found"
@@ -550,9 +524,7 @@ def test_cancel_command_removes_running_operation_and_interrupts_terminal(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
         monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
 
-        state = await pyterm_main.start_command(
-            "sleep 30", fake_context(), broadcast=True, timeout=30.0
-        )
+        state = await pyterm_main.start_command("sleep 30", fake_context(), broadcast=True, timeout=30.0)
         result = await pyterm_main.cancel_command(fake_context(), state.command_id)
 
         assert result.status == "not_found"
@@ -623,9 +595,7 @@ def test_resend_command_reuses_original_operation_settings(
         original = await pyterm_main.start_command(
             "npm test", fake_context(), path="/repo", broadcast=True, timeout=12.0
         )
-        resent = await pyterm_main.resend_command(
-            fake_context(), original.command_id, cancel_existing=False
-        )
+        resent = await pyterm_main.resend_command(fake_context(), original.command_id, cancel_existing=False)
 
         assert resent.command_id != original.command_id
         assert resent.status == "running"
@@ -668,9 +638,7 @@ def test_resend_command_can_cancel_existing_operation_first(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
         monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
 
-        original = await pyterm_main.start_command(
-            "python server.py", fake_context(), broadcast=True
-        )
+        original = await pyterm_main.start_command("python server.py", fake_context(), broadcast=True)
         resent = await pyterm_main.resend_command(fake_context(), original.command_id)
 
         assert original.command_id not in pyterm_main._RUNNING_COMMANDS
@@ -684,9 +652,7 @@ def test_resend_command_can_cancel_existing_operation_first(
 
 
 def test_resend_command_reports_missing_operation() -> None:
-    result = asyncio.run(
-        pyterm_main.resend_command(fake_context(), "missing:test-session")
-    )
+    result = asyncio.run(pyterm_main.resend_command(fake_context(), "missing:test-session"))
 
     assert result.status == "not_found"
     assert result.session_id == "test-session"
@@ -740,12 +706,8 @@ def test_cli_generate_cli_builds_fastmcp_generate_cli_commands(
 def test_run_cmd_prints_subprocess_error(monkeypatch: pytest.MonkeyPatch) -> None:
     printed: list[str] = []
 
-    def fake_run(
-        command: list[str] | str, **kwargs: Any
-    ) -> subprocess.CompletedProcess[str]:
-        raise subprocess.CalledProcessError(
-            2, command, output="stdout text", stderr="stderr text"
-        )
+    def fake_run(command: list[str] | str, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(2, command, output="stdout text", stderr="stderr text")
 
     monkeypatch.setattr(cli.subprocess, "run", fake_run)
     monkeypatch.setattr(cli.console, "print", lambda value: printed.append(str(value)))
@@ -778,11 +740,7 @@ def test_generated_cli_prints_structured_tool_results(
     printed_json: list[str] = []
     monkeypatch.setattr(auto_cli.console, "print_json", printed_json.append)
 
-    auto_cli._print_tool_result(
-        SimpleNamespace(
-            is_error=False, structured_content={"status": "success"}, content=[]
-        )
-    )
+    auto_cli._print_tool_result(SimpleNamespace(is_error=False, structured_content={"status": "success"}, content=[]))
 
     assert json.loads(printed_json[0]) == {"status": "success"}
 
@@ -820,9 +778,7 @@ def test_generated_cli_call_tool_filters_empty_optional_arguments(
         async def __aexit__(self, *args: object) -> None:
             return None
 
-        async def call_tool(
-            self, tool_name: str, arguments: dict[str, Any], *, raise_on_error: bool
-        ) -> Any:
+        async def call_tool(self, tool_name: str, arguments: dict[str, Any], *, raise_on_error: bool) -> Any:
             calls.append(
                 {
                     "tool_name": tool_name,
@@ -836,11 +792,7 @@ def test_generated_cli_call_tool_filters_empty_optional_arguments(
     monkeypatch.setattr(auto_cli, "Client", FakeClient)
     monkeypatch.setattr(auto_cli, "_print_tool_result", printed.append)
 
-    asyncio.run(
-        auto_cli._call_tool(
-            "send_command", {"keep": 1, "none": None, "empty": [], "items": ["value"]}
-        )
-    )
+    asyncio.run(auto_cli._call_tool("send_command", {"keep": 1, "none": None, "empty": [], "items": ["value"]}))
 
     assert calls == [
         {
@@ -872,15 +824,9 @@ def test_generated_cli_tool_wrappers_parse_json_arguments(
             response_timeout="0.5",
         )
     )
-    asyncio.run(
-        auto_cli.start_command(
-            command="npm test", path='"/tmp/project"', broadcast=False, timeout=3.0
-        )
-    )
+    asyncio.run(auto_cli.start_command(command="npm test", path='"/tmp/project"', broadcast=False, timeout=3.0))
     asyncio.run(auto_cli.cancel_command(command_id="null"))
-    asyncio.run(
-        auto_cli.resend_command(command_id="abc:test-session", cancel_existing=False)
-    )
+    asyncio.run(auto_cli.resend_command(command_id="abc:test-session", cancel_existing=False))
 
     assert calls == [
         (

@@ -22,9 +22,7 @@ def _run_cmd(
     stdout: int | IO[Any] | None = None,
     stderr: int | IO[Any] | None = None,
 ):
-    args_formatted: list[str] | str = (
-        arg_string if shell is True else shlex.split(arg_string)
-    )
+    args_formatted: list[str] | str = arg_string if shell is True else shlex.split(arg_string)
 
     try:
         subprocess.run(

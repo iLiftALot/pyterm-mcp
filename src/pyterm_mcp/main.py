@@ -169,19 +169,13 @@ def _start_command_operation(
     return _operation_state(command_id)
 
 
-async def _send_command(
-    command, *, path=None, broadcast=False, timeout=10.0, ctx: Context
-) -> CommandResult:
+async def _send_command(command, *, path=None, broadcast=False, timeout=10.0, ctx: Context) -> CommandResult:
     state = await _get_state(ctx)
     try:
-        output = await state.run_command(
-            command=command, broadcast=broadcast, path=path, timeout=timeout
-        )
+        output = await state.run_command(command=command, broadcast=broadcast, path=path, timeout=timeout)
         return CommandResult(
             status=_configure_status(output.status),
-            command=output.status.command
-            if output.status and output.status.command
-            else command,
+            command=output.status.command if output.status and output.status.command else command,
             broadcast=broadcast,
             path=path,
             timeout=timeout,
@@ -214,9 +208,7 @@ async def send_command(
     start_command -> get_command_status -> cancel_command/resend_command.
     """
     response_wait = response_timeout if response_timeout is not None else timeout + 1.0
-    state = _start_command_operation(
-        command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx
-    )
+    state = _start_command_operation(command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx)
     op = _RUNNING_COMMANDS[state.command_id]
     done, _ = await asyncio.wait({op.task}, timeout=response_wait)
 
@@ -244,9 +236,7 @@ async def send_command(
     )
 
 
-@mcp.tool(
-    title="Start Command", description="Start a terminal command and return a command id."
-)
+@mcp.tool(title="Start Command", description="Start a terminal command and return a command id.")
 async def start_command(
     command: str,
     ctx: Context,
@@ -260,14 +250,10 @@ async def start_command(
     Use this when a command may hang, produce delayed output, or need user-controlled
     cancellation/resend behavior.
     """
-    return _start_command_operation(
-        command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx
-    )
+    return _start_command_operation(command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx)
 
 
-@mcp.tool(
-    title="Get Command Status", description="Get the status/output for a started command."
-)
+@mcp.tool(title="Get Command Status", description="Get the status/output for a started command.")
 async def get_command_status(command_id: str) -> CommandState:
     """Return the current state of a previously started command."""
     return _operation_state(command_id)
@@ -319,9 +305,7 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
 
 @mcp.tool(title="Resend Command", description="Cancel and resend a previous command.")
-async def resend_command(
-    ctx: Context, command_id: str, cancel_existing: bool = True
-) -> CommandState:
+async def resend_command(ctx: Context, command_id: str, cancel_existing: bool = True) -> CommandState:
     """
     Resend a command using the original command/path/broadcast/timeout settings.
 
@@ -334,9 +318,7 @@ async def resend_command(
     if cancel_existing and not op.task.done():
         await cancel_command(ctx, command_id)
 
-    return _start_command_operation(
-        op.command, path=op.path, broadcast=op.broadcast, timeout=op.timeout, ctx=ctx
-    )
+    return _start_command_operation(op.command, path=op.path, broadcast=op.broadcast, timeout=op.timeout, ctx=ctx)
 
 
 def main() -> None:

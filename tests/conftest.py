@@ -58,9 +58,7 @@ _html_console = Console(
 )
 
 # Terminal console for colored stderr output (avoids pytest stdout capture)
-_terminal_console = Console(
-    record=False, log_path=False, log_time=False, stderr=True, width=100
-)
+_terminal_console = Console(record=False, log_path=False, log_time=False, stderr=True, width=100)
 
 type BrowserChoice = Literal["default", "safari", "chrome", "firefox", "edge", "mozilla"]
 
@@ -96,9 +94,7 @@ class MultiConsole:
 
     def save_html(self, path: Path, show: bool = False) -> None:
         terminal_theme = _build_terminal_theme()
-        html = self._html.export_html(
-            theme=terminal_theme, clear=False, inline_styles=False
-        )
+        html = self._html.export_html(theme=terminal_theme, clear=False, inline_styles=False)
         theme_css = _build_html_theme_css(terminal_theme)
         if theme_css:
             html = _inject_html_theme(html, theme_css)
@@ -235,11 +231,7 @@ def _terminal_theme_from_itermcolors(path: Path) -> TerminalTheme | None:
 
 
 def _load_iterm_profile() -> dict[str, object] | None:
-    if not (
-        os.getenv("TERM_PROGRAM") == "iTerm.app"
-        or os.getenv("ITERM_PROFILE")
-        or os.getenv("ITERM_PROFILE_ID")
-    ):
+    if not (os.getenv("TERM_PROGRAM") == "iTerm.app" or os.getenv("ITERM_PROFILE") or os.getenv("ITERM_PROFILE_ID")):
         return None
 
     prefs_path = Path("~/Library/Preferences/com.googlecode.iterm2.plist").expanduser()
@@ -251,9 +243,7 @@ def _load_iterm_profile() -> dict[str, object] | None:
         with prefs_path.open("rb") as handle:
             data = plistlib.load(handle)
     except Exception as e:
-        console.print(
-            f"[red]Failed to load iTerm preferences from {prefs_path}[/red]: {e}"
-        )
+        console.print(f"[red]Failed to load iTerm preferences from {prefs_path}[/red]: {e}")
         return None
 
     if not isinstance(data, dict):
@@ -263,9 +253,7 @@ def _load_iterm_profile() -> dict[str, object] | None:
     if not isinstance(profiles, list):
         return None
 
-    profile_id = os.getenv("PYTEST_HTML_THEME_PROFILE_ID") or os.getenv(
-        "ITERM_PROFILE_ID"
-    )
+    profile_id = os.getenv("PYTEST_HTML_THEME_PROFILE_ID") or os.getenv("ITERM_PROFILE_ID")
     profile_name = os.getenv("PYTEST_HTML_THEME_PROFILE") or os.getenv("ITERM_PROFILE")
 
     if profile_id:
@@ -303,9 +291,7 @@ def _build_terminal_theme() -> TerminalTheme | None:
 
     profile = _load_iterm_profile()
     if profile:
-        console.print(
-            f"[blue]Loading terminal theme from iTerm profile {profile.get('Name', 'unknown')}[/blue]"
-        )
+        console.print(f"[blue]Loading terminal theme from iTerm profile {profile.get('Name', 'unknown')}[/blue]")
         return _terminal_theme_from_iterm_dict(profile)
 
     return None
@@ -376,9 +362,7 @@ def _build_html_theme_css(theme: TerminalTheme | None) -> str | None:
     muted_rgb = _triplet_to_rgb(ansi_colors[8])
     panel_rgb = _triplet_to_rgb(ansi_colors[0])
 
-    base_css = _theme_css_from_palette(
-        bg, fg, _rgb_to_hex(link_rgb), _rgb_to_hex(panel_rgb), _rgb_to_hex(muted_rgb)
-    )
+    base_css = _theme_css_from_palette(bg, fg, _rgb_to_hex(link_rgb), _rgb_to_hex(panel_rgb), _rgb_to_hex(muted_rgb))
 
     if extra_css:
         return f"{base_css}\n{extra_css}"
@@ -474,9 +458,7 @@ def log_session_start_and_end(request: pytest.FixtureRequest) -> Generator:
     env_table.add_row("Invocation Args", " ".join(["pytest", *sys.argv[1:]]))
     env_table.add_row(
         "Plugins",
-        " ".join(str(p) for p in config.invocation_params.plugins)
-        if config.invocation_params.plugins
-        else "None",
+        " ".join(str(p) for p in config.invocation_params.plugins) if config.invocation_params.plugins else "None",
     )
 
     console.print()
@@ -547,9 +529,7 @@ def log_test_start_and_end(request: pytest.FixtureRequest) -> Generator:
         info_parts.append(f"[cyan]param=[/]{request.param!r}")
 
     # Markers (only if present)
-    markers = [
-        m.name for m in request.node.iter_markers() if m.name not in ("usefixtures",)
-    ]
+    markers = [m.name for m in request.node.iter_markers() if m.name not in ("usefixtures",)]
     if markers:
         info_parts.append(f"[yellow]markers=[/]{', '.join(markers)}")
 

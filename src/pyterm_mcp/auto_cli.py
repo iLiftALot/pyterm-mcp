@@ -64,11 +64,7 @@ def _print_tool_result(result):
 
 async def _call_tool(tool_name: str, arguments: dict) -> None:
     # Filter out None values and empty lists (defaults for optional array params)
-    filtered = {
-        k: v
-        for k, v in arguments.items()
-        if v is not None and (not isinstance(v, list) or len(v) > 0)
-    }
+    filtered = {k: v for k, v in arguments.items() if v is not None and (not isinstance(v, list) or len(v) > 0)}
     async with Client(CLIENT_SPEC) as client:
         result = await client.call_tool(tool_name, filtered, raise_on_error=False)
         _print_tool_result(result)
@@ -158,16 +154,12 @@ async def list_prompts() -> None:
 
 
 @app.command
-async def get_prompt(
-    name: Annotated[str, cyclopts.Parameter(help="Prompt name")], *arguments: str
-) -> None:
+async def get_prompt(name: Annotated[str, cyclopts.Parameter(help="Prompt name")], *arguments: str) -> None:
     """Get a prompt by name. Pass arguments as key=value pairs."""
     parsed: dict[str, str] = {}
     for arg in arguments:
         if "=" not in arg:
-            console.print(
-                f"[bold red]Error:[/bold red] Invalid argument {arg!r} — expected key=value"
-            )
+            console.print(f"[bold red]Error:[/bold red] Invalid argument {arg!r} — expected key=value")
             sys.exit(1)
         key, value = arg.split("=", 1)
         parsed[key] = value
@@ -180,9 +172,7 @@ async def get_prompt(
                 console.print(f"  {msg.content.text}")
             elif isinstance(msg.content, mcp.types.ImageContent):
                 size = len(msg.content.data) * 3 // 4
-                console.print(
-                    f"  [dim][Image: {msg.content.mimeType}, ~{size} bytes][/dim]"
-                )
+                console.print(f"  [dim][Image: {msg.content.mimeType}, ~{size} bytes][/dim]")
             else:
                 console.print(f"  {msg.content}")
             console.print()
@@ -215,11 +205,7 @@ async def send_command(
     """Send a command to the user\'s terminal."""
     # Parse JSON parameters
     path_parsed = json.loads(path) if isinstance(path, str) else path
-    response_timeout_parsed = (
-        json.loads(response_timeout)
-        if isinstance(response_timeout, str)
-        else response_timeout
-    )
+    response_timeout_parsed = json.loads(response_timeout) if isinstance(response_timeout, str) else response_timeout
 
     await _call_tool(
         "send_command",
@@ -262,9 +248,7 @@ async def start_command(
 
 
 @call_tool_app.command(name="get_command_status")
-async def get_command_status(
-    *, command_id: Annotated[str, cyclopts.Parameter(help="")]
-) -> None:
+async def get_command_status(*, command_id: Annotated[str, cyclopts.Parameter(help="")]) -> None:
     """Get the status/output for a started command."""
     await _call_tool("get_command_status", {"command_id": command_id})
 
@@ -281,9 +265,7 @@ async def cancel_command(
 ) -> None:
     """Cancel a running terminal command."""
     # Parse JSON parameters
-    command_id_parsed = (
-        json.loads(command_id) if isinstance(command_id, str) else command_id
-    )
+    command_id_parsed = json.loads(command_id) if isinstance(command_id, str) else command_id
 
     await _call_tool("cancel_command", {"command_id": command_id_parsed})
 
@@ -295,9 +277,7 @@ async def resend_command(
     cancel_existing: Annotated[bool, cyclopts.Parameter(help="")] = True,
 ) -> None:
     """Cancel and resend a previous command."""
-    await _call_tool(
-        "resend_command", {"command_id": command_id, "cancel_existing": cancel_existing}
-    )
+    await _call_tool("resend_command", {"command_id": command_id, "cancel_existing": cancel_existing})
 
 
 if __name__ == "__main__":
