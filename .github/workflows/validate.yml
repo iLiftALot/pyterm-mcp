@@ -1,0 +1,43 @@
+# This workflow installs dependencies, lints, tests, and verifies formatting.
+# Note: GitHub Actions runs after a push reaches GitHub; use a local pre-push hook to block pushes locally.
+
+name: Validate
+
+on:
+  push:
+    branches: ["main", "master"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Lint, test, and format check
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          uv sync --group=dev --group=ci
+
+      - name: Lint src and tests
+        run: |
+          uv run ruff check src tests
+
+      - name: Run tests
+        env:
+          ITERM_PYTEST_INTEGRATION: "0"
+        run: |
+          uv run pytest
+
+      - name: Check formatting
+        run: |
+          uv run ruff format --check src tests

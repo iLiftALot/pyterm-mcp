@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+sentinel_var="PYTERM_MCP_PUSH_READY_INNER"
+
+usage() {
+  printf '%s\n' \
+    "Usage:" \
+    "  scripts/push-ready --pre-push <remote> <url>" \
+    "  scripts/push-ready [<git-push-args>]" \
+    "" \
+    "Notes:" \
+    "  Normal use is plain 'git push'. The repo's pre-push hook calls this script." \
+    "  The hook formats src/tests, amends HEAD with staged changes only, runs checks, then pushes." \
+    "  It never runs git add. Unstaged and untracked files are not committed by this script." \
+    "  The inner push uses --no-verify to avoid recursively running this hook."
+}
+
+is_zero_oid() {
+  [[ "$1" =~ ^0+$ ]]
+}
+
+has_unstaged_format_targets() {
+  ! git diff --quiet -- src tests
+}
+
+has_untracked_format_targets() {
+  [[ -n "$(git ls-files --others --exclude-standard -- src tests)" ]]
+}
+
+has_staged_changes() {
+  ! git diff --cached --quiet
+}
+
+run_checks() {
+  echo "Running Ruff lint..."
+  uv run --python=3.12 --group dev --group ci ruff check src tests
+
+  echo "Running offline-safe tests..."
+  ITERM_PYTEST_INTEGRATION=0 uv run --python=3.12 --group dev --group ci pytest
+}
+
+pre_push() {
+  local remote="$1"
+  local url="$2"
+  local -a refspecs=()
+  local -a passthrough_refspecs=()
+  local amended=0
+  local line local_ref local_oid remote_ref remote_oid
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    read -r local_ref local_oid remote_ref remote_oid <<<"$line"
+
+    if is_zero_oid "$local_oid"; then
+      passthrough_refspecs+=(":$remote_ref")
+      continue
+    fi
+
+    if [[ "$local_ref" == refs/heads/* && "$remote_ref" == refs/heads/* ]]; then
+      refspecs+=("$local_ref:$remote_ref")
+    else
+      passthrough_refspecs+=("$local_ref:$remote_ref")
+    fi
+  done
+
+  if ((${#refspecs[@]} == 0)); then
+    echo "No branch refs to verify; letting git handle this push."
+    return 2
+  fi
+
+  if has_unstaged_format_targets || has_untracked_format_targets; then
+    echo "Unstaged or untracked files exist under src/ or tests/."
+    echo "This hook will not format and stage files for you."
+    echo "Review and stage the intended src/test changes, then run git push again."
+    git status --short -- src tests
+    return 1
+  fi
+
+  echo "Formatting src and tests..."
+  uv run --python=3.12 --group dev --group ci ruff format src tests
+
+  if has_unstaged_format_targets; then
+    echo "Formatting changed files under src/ or tests/."
+    echo "This hook will not stage those formatting changes for you."
+    echo "Review and stage the formatting changes, then run git push again."
+    git status --short -- src tests
+    return 1
+  fi
+
+  if has_staged_changes; then
+    echo "Amending HEAD with staged changes only..."
+    git commit --amend --no-edit --no-verify
+    amended=1
+  fi
+
+  run_checks
+
+  if [[ "$amended" -eq 0 ]]; then
+    echo "Checks passed. No amend was needed; letting the original git push proceed."
+    return 2
+  fi
+
+  echo "Checks passed. Pushing verified refspecs with hooks disabled to avoid recursion..."
+  env "$sentinel_var=1" git push --no-verify "$remote" "${refspecs[@]}" "${passthrough_refspecs[@]}"
+
+  echo "Push completed with amended HEAD."
+
+  # The outer git push must be stopped because it captured the original object IDs
+  # before this hook had a chance to format/amend. The hook converts this into a
+  # successful inner push and a deliberate outer abort.
+  return 0
+}
+
+main() {
+  if [[ "${!sentinel_var:-}" == "1" ]]; then
+    exit 0
+  fi
+
+  case "${1-}" in
+    --pre-push)
+      shift
+      [[ "$#" -eq 2 ]] || { usage; exit 2; }
+      repo_root="$(git rev-parse --show-toplevel)"
+      cd "$repo_root"
+      pre_push "$1" "$2"
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      git push "$@"
+      ;;
+  esac
+}
+
+main "$@"
