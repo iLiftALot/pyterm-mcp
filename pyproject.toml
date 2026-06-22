@@ -365,4 +365,4 @@ package = true
 members = ["packages/*"]
 
 [tool.uv.sources]
-iterm2_api_wrapper = { workspace = true }
+iterm2-api-wrapper = { workspace = true }
