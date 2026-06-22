@@ -53,7 +53,7 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 addopts = "-vv -l -rA --debug=trace"
-console_output_style = "count" # "progress"
+console_output_style = "count"
 filterwarnings = [
   "ignore:websockets.legacy is deprecated:DeprecationWarning",
   "ignore:In 3.13 classes created inside an enum will not become a member:DeprecationWarning",
