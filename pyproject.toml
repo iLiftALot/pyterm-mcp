@@ -6,7 +6,15 @@ readme = "README.md"
 authors = [{ name = "Nicholas Corbin", email = "nickcorbin17@yahoo.com" }]
 maintainers = [{ name = "Nicholas Corbin", email = "nickcorbin17@yahoo.com" }]
 classifiers = [
-  # TODO
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS :: MacOS X",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Shells",
+  "Topic :: Terminals",
 ]
 license = "MIT"
 dependencies = [
