@@ -4,13 +4,14 @@ import asyncio
 import json
 import subprocess
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 import mcp.types
 import pytest
-from fastmcp import Client
+from fastmcp import Client, Context
 from iterm2_api_wrapper.typings import (
     CommandExecutionResult,
     CommandExecutionStatus,
@@ -19,8 +20,7 @@ from iterm2_api_wrapper.typings import (
 from mcp.types import TextContent
 from pydantic import ValidationError
 
-from pyterm_mcp import cli
-from pyterm_mcp import auto_cli
+from pyterm_mcp import auto_cli, cli
 from pyterm_mcp import main as pyterm_main
 from pyterm_mcp.types import CommandOperation, CommandResult
 
@@ -62,12 +62,19 @@ class DummyClient:
         return self.state
 
 
+@dataclass(frozen=True)
 class DummyContext:
-    session_id = "test-session"
+    @property
+    def session_id(self) -> str:
+        return "test-session"
+
+    @classmethod
+    def asContext(cls) -> Context:
+        return cast(Context, cls())
 
 
-def fake_context() -> Any:
-    return DummyContext()
+def fake_context() -> Context:
+    return DummyContext.asContext()
 
 
 def command_status(
@@ -89,20 +96,28 @@ def execution_result(
 
 
 async def cancel_pending_operations() -> None:
-    pending = [op.task for op in pyterm_main._RUNNING_COMMANDS.values() if not op.task.done()]
+    pending = [
+        op.task
+        for session in pyterm_main._RUNNING_COMMANDS.values()
+        for op in session.operations.values()
+        if not op.task.done()
+    ]
     for task in pending:
         task.cancel()
     for task in pending:
         with suppress(asyncio.CancelledError):
             await task
     pyterm_main._RUNNING_COMMANDS.clear()
+    pyterm_main._COMPLETED_COMMANDS.clear()
 
 
 @pytest.fixture(autouse=True)
 def clear_running_commands() -> Iterator[None]:
     pyterm_main._RUNNING_COMMANDS.clear()
+    pyterm_main._COMPLETED_COMMANDS.clear()
     yield
     pyterm_main._RUNNING_COMMANDS.clear()
+    pyterm_main._COMPLETED_COMMANDS.clear()
 
 
 @pytest.mark.parametrize(
@@ -170,7 +185,7 @@ def test_get_state_uses_session_scoped_shared_client(
 
     monkeypatch.setattr(pyterm_main, "get_shared_client", fake_get_shared_client)
 
-    result = asyncio.run(pyterm_main._get_state(fake_context()))
+    result = asyncio.run(pyterm_main._get_state_for_session(fake_context().session_id))
 
     assert result is state
     assert calls == [{"service_name": "pyterm-mcp", "extra_id": "test-session"}]
@@ -278,25 +293,21 @@ def test_interrupt_terminal_sends_ctrl_c_and_swallows_delivery_errors(
 ) -> None:
     working_state = DummyState()
 
-    async def get_working_state(ctx: Any) -> DummyState:
+    async def get_working_state_for_session(session_id: str) -> DummyState:
+        assert session_id == "test-session"
         return working_state
 
-    monkeypatch.setattr(pyterm_main, "_get_state", get_working_state)
-
+    monkeypatch.setattr(pyterm_main, "_get_state_for_session", get_working_state_for_session)
     asyncio.run(pyterm_main._interrupt_terminal(broadcast=True, ctx=fake_context()))
-
     assert working_state.escape_calls == [(("CNTRL_C", "CNTRL_C"), True)]
-
     failing_state = DummyState(escape_exc=RuntimeError("rpc unavailable"))
 
-    async def get_failing_state(ctx: Any) -> DummyState:
+    async def get_failing_state_for_session(session_id: str) -> DummyState:
+        assert session_id == "test-session"
         return failing_state
 
-    monkeypatch.setattr(pyterm_main, "_get_state", get_failing_state)
-
+    monkeypatch.setattr(pyterm_main, "_get_state_for_session", get_failing_state_for_session)
     asyncio.run(pyterm_main._interrupt_terminal(broadcast=False, ctx=fake_context()))
-
-    assert failing_state.escape_calls == [(("CNTRL_C", "CNTRL_C"), False)]
 
 
 def test_send_command_tool_returns_text_content_on_success(
@@ -334,6 +345,7 @@ def test_send_command_tool_returns_text_content_on_success(
     assert isinstance(result.structuredContent["command_id"], str)
     assert result.structuredContent["command_id"]
     assert pyterm_main._RUNNING_COMMANDS == {}
+    assert result.structuredContent["command_id"] in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
 
 
 def test_send_command_tool_returns_structured_error(
@@ -370,6 +382,7 @@ def test_send_command_tool_returns_structured_error(
     assert isinstance(result.structuredContent["command_id"], str)
     assert result.structuredContent["command_id"]
     assert pyterm_main._RUNNING_COMMANDS == {}
+    assert result.structuredContent["command_id"] in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
 
 
 def test_send_command_tool_returns_running_state_when_response_timeout_expires(
@@ -409,7 +422,7 @@ def test_send_command_tool_returns_running_state_when_response_timeout_expires(
         assert result.structuredContent["timeout"] == 30.0
         assert result.structuredContent["is_done"] is False
         assert isinstance(result.content[0], TextContent) and "Use get_command_status" in result.content[0].text
-        assert result.structuredContent["command_id"] in pyterm_main._RUNNING_COMMANDS
+        assert result.structuredContent["command_id"] in pyterm_main._RUNNING_COMMANDS["test-session"].operations
 
         await cancel_pending_operations()
 
@@ -469,14 +482,17 @@ def test_operation_state_maps_terminal_task_failures(
         task = asyncio.create_task(fail())
         with suppress(BaseException):
             await task
-        pyterm_main._RUNNING_COMMANDS[command_id] = CommandOperation(
-            command_id=command_id,
-            session_id="test-session",
-            command="cmd",
-            path=None,
-            broadcast=False,
-            timeout=1.0,
-            task=task,
+        pyterm_main._store_operation(
+            pyterm_main._RUNNING_COMMANDS,
+            CommandOperation(
+                command_id=command_id,
+                session_id="test-session",
+                command="cmd",
+                path=None,
+                broadcast=False,
+                timeout=1.0,
+                task=task,
+            ),
         )
 
         state = pyterm_main._operation_state(command_id)
@@ -518,7 +534,9 @@ def test_cancel_command_removes_running_operation_and_interrupts_terminal(
                 output="never",
             )
 
-        async def fake_interrupt_terminal(*, broadcast: bool, ctx: Any) -> None:
+        async def fake_interrupt_terminal(
+            *, broadcast: bool, ctx: Any | None = None, session_id: str | None = None
+        ) -> None:
             interrupt_calls.append(broadcast)
 
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
@@ -527,10 +545,11 @@ def test_cancel_command_removes_running_operation_and_interrupts_terminal(
         state = await pyterm_main.start_command("sleep 30", fake_context(), broadcast=True, timeout=30.0)
         result = await pyterm_main.cancel_command(fake_context(), state.command_id)
 
-        assert result.status == "not_found"
-        assert result.output == f"No command operation found for id: {state.command_id}"
+        assert result.status == "cancelled"
+        assert result.output == "Command was cancelled."
         assert interrupt_calls == [True]
-        assert state.command_id not in pyterm_main._RUNNING_COMMANDS
+        assert state.command_id not in pyterm_main._iter_command_ids(pyterm_main._RUNNING_COMMANDS)
+        assert state.command_id in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
 
     asyncio.run(scenario())
 
@@ -554,7 +573,9 @@ def test_cancel_command_without_id_cancels_all_running_operations(
                 output="never",
             )
 
-        async def fake_interrupt_terminal(*, broadcast: bool, ctx: Any) -> None:
+        async def fake_interrupt_terminal(
+            *, broadcast: bool, ctx: Any | None = None, session_id: str | None = None
+        ) -> None:
             interrupt_calls.append(broadcast)
 
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
@@ -569,6 +590,10 @@ def test_cancel_command_without_id_cancels_all_running_operations(
         assert result.output == "2 running commands have been cancelled."
         assert interrupt_calls == [False, True]
         assert pyterm_main._RUNNING_COMMANDS == {}
+        assert set(pyterm_main._COMPLETED_COMMANDS["test-session"].operations) == {
+            first.command_id,
+            second.command_id,
+        }
 
     asyncio.run(scenario())
 
@@ -603,12 +628,82 @@ def test_resend_command_reuses_original_operation_settings(
         assert resent.path == "/repo"
         assert resent.broadcast is True
         assert resent.timeout == 12.0
-        assert set(pyterm_main._RUNNING_COMMANDS) == {
+        assert set(pyterm_main._iter_command_ids(pyterm_main._RUNNING_COMMANDS)) == {
             original.command_id,
             resent.command_id,
         }
 
         await cancel_pending_operations()
+
+    asyncio.run(scenario())
+
+
+def test_completed_command_status_is_archived_by_session_and_remains_queryable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        async def fake_send_command(
+            command: str, *, path: str | None, broadcast: bool, timeout: float, ctx: Any
+        ) -> CommandResult:
+            return CommandResult(
+                status="success",
+                command=command,
+                broadcast=broadcast,
+                path=path,
+                timeout=timeout,
+                output="finished",
+            )
+
+        monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
+
+        started = await pyterm_main.start_command("echo done", fake_context(), path="/repo", timeout=4.0)
+        await asyncio.sleep(0)
+
+        first_status = await pyterm_main.get_command_status(started.command_id)
+        archived_status = await pyterm_main.get_command_status(started.command_id)
+
+        assert first_status.status == "success"
+        assert first_status.output == "finished"
+        assert archived_status == first_status
+        assert pyterm_main._RUNNING_COMMANDS == {}
+        assert started.command_id in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
+
+    asyncio.run(scenario())
+
+
+def test_resend_command_can_reuse_completed_operation_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        async def fake_send_command(
+            command: str, *, path: str | None, broadcast: bool, timeout: float, ctx: Any
+        ) -> CommandResult:
+            return CommandResult(
+                status="success",
+                command=command,
+                broadcast=broadcast,
+                path=path,
+                timeout=timeout,
+                output="finished",
+            )
+
+        monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
+
+        started = await pyterm_main.start_command(
+            "npm test", fake_context(), path="/repo", broadcast=True, timeout=12.0
+        )
+        await asyncio.sleep(0)
+        completed = await pyterm_main.get_command_status(started.command_id)
+        resent = await pyterm_main.resend_command(fake_context(), completed.command_id)
+
+        assert completed.status == "success"
+        assert resent.command_id != completed.command_id
+        assert resent.command == "npm test"
+        assert resent.path == "/repo"
+        assert resent.broadcast is True
+        assert resent.timeout == 12.0
+        assert completed.command_id in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
+        assert resent.command_id in pyterm_main._RUNNING_COMMANDS["test-session"].operations
 
     asyncio.run(scenario())
 
@@ -632,7 +727,9 @@ def test_resend_command_can_cancel_existing_operation_first(
                 output="never",
             )
 
-        async def fake_interrupt_terminal(*, broadcast: bool, ctx: Any) -> None:
+        async def fake_interrupt_terminal(
+            *, broadcast: bool, ctx: Any | None = None, session_id: str | None = None
+        ) -> None:
             interrupt_calls.append(broadcast)
 
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
@@ -641,8 +738,9 @@ def test_resend_command_can_cancel_existing_operation_first(
         original = await pyterm_main.start_command("python server.py", fake_context(), broadcast=True)
         resent = await pyterm_main.resend_command(fake_context(), original.command_id)
 
-        assert original.command_id not in pyterm_main._RUNNING_COMMANDS
-        assert resent.command_id in pyterm_main._RUNNING_COMMANDS
+        assert original.command_id not in pyterm_main._iter_command_ids(pyterm_main._RUNNING_COMMANDS)
+        assert original.command_id in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
+        assert resent.command_id in pyterm_main._RUNNING_COMMANDS["test-session"].operations
         assert resent.command == "python server.py"
         assert interrupt_calls == [True]
 

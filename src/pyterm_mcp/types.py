@@ -1,6 +1,6 @@
 import asyncio
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,11 @@ from pydantic import BaseModel, Field
 type CommandStatus = Literal[
     "running", "success", "error", "unknown (Shell-Integration Disabled)", "timeout", "cancelled", "not_found"
 ]
+
+
+class SupportsSessionId(Protocol):
+    @property
+    def session_id(self) -> str: ...
 
 
 class CommandResult(BaseModel):
@@ -45,3 +50,9 @@ class CommandOperation:
     broadcast: bool
     timeout: float
     task: asyncio.Task[CommandResult]
+
+
+@dataclass(slots=True)
+class CommandSession:
+    session_id: str
+    operations: dict[str, CommandOperation] = field(default_factory=dict)
