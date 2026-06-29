@@ -246,3 +246,4 @@ CLAUDE.md
 .codex/bin/
 assets/*
 trace
+docs/reports/

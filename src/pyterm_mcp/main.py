@@ -35,7 +35,9 @@ async def _get_state_for_session(session_id: str) -> iTermState:
     return state
 
 
-def _parse_session_id(command_id: str) -> str:
+def _parse_session_id(command_id: str) -> str | None:
+    if ":" not in command_id:
+        return None
     return command_id.split(":", 1)[1]
 
 
@@ -52,7 +54,11 @@ def _store_operation(store: dict[str, CommandSession], op: CommandOperation) -> 
 
 
 def _get_operation(store: dict[str, CommandSession], command_id: str) -> CommandOperation | None:
-    session = store.get(_parse_session_id(command_id))
+    session_id = _parse_session_id(command_id)
+    if session_id is None:
+        return None
+
+    session = store.get(session_id)
     if session is None:
         return None
     return session.operations.get(command_id)
@@ -60,6 +66,9 @@ def _get_operation(store: dict[str, CommandSession], command_id: str) -> Command
 
 def _pop_operation(store: dict[str, CommandSession], command_id: str) -> CommandOperation | None:
     session_id = _parse_session_id(command_id)
+    if session_id is None:
+        return None
+
     session = store.get(session_id)
     if session is None:
         return None
@@ -134,7 +143,7 @@ def _operation_state(command_id: str) -> CommandState:
             path=None,
             timeout=None,
             command_id=command_id,
-            session_id=_parse_session_id(command_id),
+            session_id=_parse_session_id(command_id) or "",
             status="not_found",
             output=f"No command operation found for id: {command_id}",
             is_done=True,
@@ -158,7 +167,7 @@ def _operation_state(command_id: str) -> CommandState:
     except asyncio.InvalidStateError:
         return CommandState(
             command_id=command_id,
-            session_id=_parse_session_id(command_id),
+            session_id=_parse_session_id(command_id) or op.session_id,
             status="running",
             command=op.command,
             broadcast=op.broadcast,
@@ -353,10 +362,16 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
     :param command_id: The ID of the running command. If ``None``, cancels all running commands, defaults to None
     :type command_id: ``str | None``, optional
+
+    ---
+
     :return: State returned by command lifecycle/control tools.
     :rtype: :class:`CommandState`
     """
-    if command_id is None:
+    command_id_is_nullish = command_id is not None and (
+        bool(command_id.strip()) is False or command_id.strip().lower() in {"none", "null", "0"}
+    )
+    if command_id is None or command_id_is_nullish:
         cmd_ids = _iter_command_ids(_RUNNING_COMMANDS)
 
         for cmd_id in cmd_ids:
@@ -380,8 +395,8 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
         return _operation_state(command_id)
 
     if not op.task.done():
-        op.task.cancel()
         await _interrupt_terminal(broadcast=op.broadcast, session_id=op.session_id)
+        op.task.cancel()
 
         with suppress(asyncio.CancelledError):
             await op.task

@@ -504,15 +504,55 @@ def test_operation_state_maps_terminal_task_failures(
     asyncio.run(scenario())
 
 
-def test_get_command_status_reports_missing_well_formed_id_and_rejects_malformed_id() -> None:
+def test_get_command_status_reports_missing_and_malformed_ids() -> None:
     missing = asyncio.run(pyterm_main.get_command_status("missing:test-session"))
 
     assert missing.status == "not_found"
     assert missing.session_id == "test-session"
     assert missing.output == "No command operation found for id: missing:test-session"
 
-    with pytest.raises(IndexError):
-        asyncio.run(pyterm_main.get_command_status("malformed"))
+    malformed = asyncio.run(pyterm_main.get_command_status("malformed"))
+
+    assert malformed.status == "not_found"
+    assert malformed.session_id == ""
+    assert malformed.output == "No command operation found for id: malformed"
+
+
+@pytest.mark.parametrize("nullish_command_id", [None, "", "none", "null", " NULL "])
+def test_cancel_command_treats_nullish_command_id_as_cancel_all(
+    monkeypatch: pytest.MonkeyPatch,
+    nullish_command_id: str | None,
+) -> None:
+    async def scenario() -> None:
+        async def fake_send_command(
+            command: str, *, path: str | None, broadcast: bool, timeout: float, ctx: Any
+        ) -> CommandResult:
+            await asyncio.Event().wait()
+            return CommandResult(
+                status="success",
+                command=command,
+                broadcast=broadcast,
+                path=path,
+                timeout=timeout,
+                output="never",
+            )
+
+        async def fake_interrupt_terminal(
+            *, broadcast: bool, ctx: Any | None = None, session_id: str | None = None
+        ) -> None:
+            return None
+
+        monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
+        monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
+
+        await pyterm_main.start_command("one", fake_context())
+        result = await pyterm_main.cancel_command(fake_context(), nullish_command_id)
+
+        assert result.status == "cancelled"
+        assert result.output == "1 running commands have been cancelled."
+        assert pyterm_main._RUNNING_COMMANDS == {}
+
+    asyncio.run(scenario())
 
 
 def test_cancel_command_removes_running_operation_and_interrupts_terminal(
