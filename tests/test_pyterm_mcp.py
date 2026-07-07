@@ -124,8 +124,8 @@ def clear_running_commands() -> Iterator[None]:
     [
         "running",
         "success",
-        "error",
-        "unknown (Shell-Integration Disabled)",
+        "failed",
+        "unknown_error",
         "timeout",
         "cancelled",
         "not_found",
@@ -193,9 +193,9 @@ def test_get_state_uses_session_scoped_shared_client(
 @pytest.mark.parametrize(
     ("status", "expected"),
     [
-        (None, "unknown (Shell-Integration Disabled)"),
+        (None, "not_found"),
         (command_status(exit_code=CommandExitCode.SUCCESS), "success"),
-        (command_status(exit_code=CommandExitCode.GENERAL_FAILURE), "error"),
+        (command_status(exit_code=CommandExitCode.GENERAL_FAILURE), "failed"),
         (
             command_status(exit_code=CommandExitCode.GENERAL_FAILURE, timed_out=True),
             "timeout",
@@ -261,7 +261,7 @@ def test_send_command_helper_reports_unknown_when_shell_integration_status_missi
 
     result = asyncio.run(pyterm_main._send_command("true", ctx=fake_context()))
 
-    assert result.status == "unknown (Shell-Integration Disabled)"
+    assert result.status == "not_found"
     assert result.output == ""
 
 
@@ -371,7 +371,7 @@ def test_send_command_tool_returns_structured_error(
     assert result.content[0].type == "text"
     assert result.content[0].text == "boom"
     assert result.structuredContent is not None
-    assert result.structuredContent["status"] == "error"
+    assert result.structuredContent["status"] == "unknown_error"
     assert result.structuredContent["command"] == "date"
     assert result.structuredContent["broadcast"] is True
     assert result.structuredContent["path"] == "/work"
@@ -423,7 +423,7 @@ def test_start_and_get_command_status_track_running_operation(
     [
         (asyncio.CancelledError(), "cancelled", "Command was cancelled."),
         (TimeoutError("too slow"), "timeout", "too slow"),
-        (RuntimeError("boom"), "error", "boom"),
+        (RuntimeError("boom"), "unknown_error", "boom"),
     ],
 )
 def test_operation_state_maps_terminal_task_failures(
@@ -464,13 +464,13 @@ def test_get_command_status_reports_missing_and_malformed_ids() -> None:
 
     assert missing.status == "not_found"
     assert missing.session_id == "test-session"
-    assert missing.output == "No command operation found for id: missing:test-session"
+    assert missing.output == "No command operation found for id: 'missing:test-session'."
 
     malformed = asyncio.run(pyterm_main.get_command_status("malformed"))
 
     assert malformed.status == "not_found"
-    assert malformed.session_id == ""
-    assert malformed.output == "No command operation found for id: malformed"
+    assert malformed.session_id == "null"
+    assert malformed.output == "No command operation found for id: 'malformed'."
 
 
 @pytest.mark.parametrize("nullish_command_id", [None, "", "none", "null", " NULL "])

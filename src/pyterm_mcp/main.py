@@ -153,9 +153,9 @@ def _operation_state(command_id: str) -> CommandState:
             path=None,
             timeout=None,
             command_id=command_id,
-            session_id=_parse_session_id(command_id) or "unknown",
+            session_id=_parse_session_id(command_id) or "null",
             status="not_found",
-            output=f"No command operation found for id: {command_id}.",
+            output=f"No command operation found for id: '{command_id}'.",
             is_done=True,
         )
 
