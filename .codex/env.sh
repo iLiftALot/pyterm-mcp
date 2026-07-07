@@ -1,0 +1,6 @@
+export PATH="$PWD/.codex/bin:$PWD/.venv/bin:$PATH"
+export UV_CACHE_DIR="/private/tmp/pyterm-mcp-uv-cache"
+export UV_TOOL_DIR="$PWD/.codex/tools"
+export UV_TOOL_BIN_DIR="$PWD/.codex/bin"
+export ITERM_PYTEST_INTEGRATION="0"
+export ITERM_DEDICATED_PROFILE="${ITERM_DEDICATED_PROFILE:-pyterm-mcp}"

@@ -27,7 +27,7 @@ name = "Run Tests"
 icon = "test"
 command = '''
 source .codex/env.sh
-pytest
+uv run --python=3.10 pytest
 '''
 
 [[actions]]
@@ -59,7 +59,7 @@ name = "Typecheck"
 icon = "tool"
 command = '''
 source .codex/env.sh
-uv run --python=3.10 ty check .
+uv run --python=3.10 ruff check .
 '''
 
 [[actions]]
@@ -91,4 +91,12 @@ uv tool install --force --editable . --project=. --python=./.venv/bin/python
 command -v pyterm_dev
 command -v pyterm_mcp
 command -v pyterm_test
+'''
+
+[[actions]]
+name = "Show Tools with Paths"
+icon = "tool"
+command = '''
+source .codex/env.sh
+uv tool list --show-paths
 '''

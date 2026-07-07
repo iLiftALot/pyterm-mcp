@@ -120,28 +120,26 @@ clean-test:
     rm -fr htmlcov/
     rm -fr .pytest_cache
 
-# remove all build, mypy, test, coverage and Python artifacts
+# Clean docs/_build
+clean-docs:
+    rm -rf docs/_build
+
+# remove all build, mypy, test, coverage, docs, and Python artifacts
 clean:
     @just clean-build
     @just clean-pyc
     @just clean-linter
     @just clean-test
+    @just clean-docs
 
 # Build docs
 docs:
-    uv run sphinx-build -b html docs docs/_build
-
-# Clean and rebuild docs
-docs-clean:
-    rm -rf docs/_build
     uv run sphinx-build -b html docs docs/_build
 
 # Open docs in browser
 docs-open:
     open docs/_build/index.html
 
-# Build and open docs
-docs-view: docs-clean docs-open
 
 # Watch for changes and auto-rebuild (requires sphinx-autobuild)
 docs-watch:
