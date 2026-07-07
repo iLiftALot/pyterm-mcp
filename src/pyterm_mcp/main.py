@@ -282,18 +282,32 @@ async def _send_command(command, *, path=None, broadcast=False, timeout=10.0, ct
 
 @mcp.tool(title="Send Command", description="Send a command to the user's terminal.")
 async def send_command(
-    command: str,
     ctx: Context,
+    command: str,
     path: str | None = None,
     broadcast: bool = False,
     timeout: float = 10.0,
     response_timeout: float | None = None,
 ) -> CallToolResult:
-    """
-    Send a command to the user's terminal and return the output.
+    """Send a command to the user's terminal and return the output.
 
     For commands that may hang or need lifecycle control, prefer:
     start_command -> get_command_status -> cancel_command/resend_command.
+
+    ---
+
+    :param command: The command to run in the user's terminal.
+    :type command: `str`
+    :param path: The working directory in which to run the command.
+    :type path: `str | None`, default=None
+    :param broadcast: Whether to broadcast the command to all users.
+    :type broadcast: `bool`, default=False
+    :param timeout: The maximum time to wait for the command to complete.
+    :type timeout: `float`, default=10.0
+    :param response_timeout: The maximum time to wait for a response.
+    :type response_timeout: `float | None`, default=None
+    :return: The result of the command execution.
+    :rtype: :class:`CallToolResult`
     """
     response_wait = response_timeout if response_timeout is not None else timeout + 1.0
     state = _start_command_operation(command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx)
@@ -307,7 +321,6 @@ async def send_command(
         )
 
     done, _ = await asyncio.wait({op.task}, timeout=response_wait)
-
     if done:
         state = _operation_state_and_archive_if_done(state.command_id)
         return CallToolResult(
@@ -322,7 +335,7 @@ async def send_command(
                 type="text",
                 text=(
                     "Command is still running. "
-                    f"Use get_command_status, cancel_command, or resend_command with command_id={state.command_id}."
+                    f"Use get_command_status, cancel_command, or resend_command with command_id={state.command_id}"
                 ),
             )
         ],
@@ -331,26 +344,46 @@ async def send_command(
     )
 
 
-@mcp.tool(title="Start Command", description="Start a terminal command and return a command id.")
+@mcp.tool(title="Start Command", description="Start a terminal command and return a command ID.")
 async def start_command(
-    command: str,
     ctx: Context,
+    command: str,
     path: str | None = None,
     broadcast: bool = False,
     timeout: float = 10.0,
 ) -> CommandState:
-    """
-    Start a command without waiting for completion.
+    """Start a command without waiting for completion.
 
     Use this when a command may hang, produce delayed output, or need user-controlled
     cancellation/resend behavior.
+
+    ---
+
+    :param command: The command to run in the user's terminal.
+    :type command: `str`
+    :param path: The working directory in which to run the command.
+    :type path: `str | None`, default=None
+    :param broadcast: Whether to broadcast the command output to all connected clients.
+    :type broadcast: `bool`, default=False
+    :param timeout: The maximum time to wait for the command to start.
+    :type timeout: `float`, default=10.0
+    :return: The state of the started command.
+    :rtype: :class:`CommandState`
     """
     return _start_command_operation(command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx)
 
 
 @mcp.tool(title="Get Command Status", description="Get the status/output for a started command.")
 async def get_command_status(command_id: str) -> CommandState:
-    """Return the current state of a previously started command."""
+    """Return the current state of a previously started command.
+
+    ---
+
+    :param command_id: The ID of the previously started command.
+    :type command_id: `str`
+    :return: The current state of the command.
+    :rtype: :class:`CommandState`
+    """
     return _operation_state_and_archive_if_done(command_id)
 
 
@@ -360,11 +393,8 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
     ---
 
-    :param command_id: The ID of the running command. If ``None``, cancels all running commands, defaults to None
-    :type command_id: ``str | None``, optional
-
-    ---
-
+    :param command_id: The ID of the running command. If `None`, cancels all running commands
+    :type command_id: `str | None`, default=None
     :return: State returned by command lifecycle/control tools.
     :rtype: :class:`CommandState`
     """
@@ -406,10 +436,18 @@ async def cancel_command(ctx: Context, command_id: str | None = None) -> Command
 
 @mcp.tool(title="Resend Command", description="Cancel and resend a previous command.")
 async def resend_command(ctx: Context, command_id: str, cancel_existing: bool = True) -> CommandState:
-    """
-    Resend a command using the original command/path/broadcast/timeout settings.
+    """Resend a command using the original command/path/broadcast/timeout settings.
 
     By default this cancels the existing operation first.
+
+    ---
+
+    :param command_id: The ID of the command to resend.
+    :type command_id: `str`
+    :param cancel_existing: Whether to cancel the existing running command before resending.
+    :type cancel_existing: `bool`, default=True
+    :return: The state of the resent command.
+    :rtype: `CommandState`
     """
     running_op = _get_operation(_RUNNING_COMMANDS, command_id)
     op = running_op or _get_operation(_COMPLETED_COMMANDS, command_id)

@@ -1,5 +1,5 @@
 output-format = "full"
-target-version = "py312"
+target-version = "py310"
 line-length = 120
 indent-width = 4
 exclude = [
@@ -31,8 +31,14 @@ exclude = [
   "venv",
   "code_examples",
   "miniconda3",
+  "cpython-3.10-macos-aarch64-none",
+  "cpython-3.11-macos-aarch64-none",
   "cpython-3.12-macos-aarch64-none",
-  "cpython-3.13.9-macos-aarch64-none"
+  "cpython-3.13-macos-aarch64-none",
+  "cpython-3.14-macos-aarch64-none",
+  "cpython-3.15-macos-aarch64-none",
+  "cpython-3.12.9-macos-aarch64-none",
+  "cpython-3.*"
 ]
 include = ["**{src,tests}/**/*.py", "**{src,tests}/**/*.ipynb"]
 force-exclude = true

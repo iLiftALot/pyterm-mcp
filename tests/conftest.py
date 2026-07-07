@@ -60,7 +60,7 @@ _html_console = Console(
 # Terminal console for colored stderr output (avoids pytest stdout capture)
 _terminal_console = Console(record=False, log_path=False, log_time=False, stderr=True, width=100)
 
-type BrowserChoice = Literal["default", "safari", "chrome", "firefox", "edge", "mozilla"]
+BrowserChoice = Literal["default", "safari", "chrome", "firefox", "edge", "mozilla"]
 
 
 class MultiConsole:

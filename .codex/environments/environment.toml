@@ -8,7 +8,7 @@ set -euo pipefail
 
 export UV_CACHE_DIR="/private/tmp/pyterm-mcp-uv-cache"
 
-uv sync --dev --python=3.12
+uv sync --dev --python=3.10
 mkdir -p .codex/bin
 
 ln -sf "$(pwd)/.venv/bin/python" .codex/bin/python
@@ -35,7 +35,7 @@ name = "Lint"
 icon = "tool"
 command = '''
 source .codex/env.sh
-uv run --python=3.12 ruff check .
+uv run --python=3.10 ruff check .
 '''
 
 [[actions]]
@@ -43,7 +43,7 @@ name = "Format Check"
 icon = "tool"
 command = '''
 source .codex/env.sh
-uv run --python=3.12 ruff format --check .
+uv run --python=3.10 ruff format --check .
 '''
 
 [[actions]]
@@ -51,7 +51,7 @@ name = "Format"
 icon = "tool"
 command = '''
 source .codex/env.sh
-uv run --python=3.12 ruff format .
+uv run --python=3.10 ruff format .
 '''
 
 [[actions]]
@@ -59,7 +59,7 @@ name = "Typecheck"
 icon = "tool"
 command = '''
 source .codex/env.sh
-uv run --python=3.12 ty check .
+uv run --python=3.10 ty check .
 '''
 
 [[actions]]

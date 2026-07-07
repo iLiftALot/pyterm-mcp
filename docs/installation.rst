@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-* Python 3.12 or higher
+* Python 3.10 or higher
 
 Install from source
 -------------------

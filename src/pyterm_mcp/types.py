@@ -5,7 +5,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 
-type CommandStatus = Literal[
+CommandStatus = Literal[
     "running", "success", "error", "unknown (Shell-Integration Disabled)", "timeout", "cancelled", "not_found"
 ]
 

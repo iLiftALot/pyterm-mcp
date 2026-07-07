@@ -327,7 +327,7 @@ def test_send_command_tool_returns_text_content_on_success(
 
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-    result = asyncio.run(pyterm_main.send_command("date", fake_context(), path=None, broadcast=False, timeout=3.0))
+    result = asyncio.run(pyterm_main.send_command(fake_context(), "date", path=None, broadcast=False, timeout=3.0))
 
     assert result.isError is False
     assert len(result.content) == 1
@@ -365,7 +365,7 @@ def test_send_command_tool_returns_structured_error(
 
     monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-    result = asyncio.run(pyterm_main.send_command("date", fake_context(), path="/work", broadcast=True, timeout=3.0))
+    result = asyncio.run(pyterm_main.send_command(fake_context(), "date", path="/work", broadcast=True, timeout=3.0))
 
     assert result.isError is True
     assert len(result.content) == 1
@@ -405,8 +405,8 @@ def test_send_command_tool_returns_running_state_when_response_timeout_expires(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
         result = await pyterm_main.send_command(
-            "sleep 30",
             fake_context(),
+            "sleep 30",
             path="/work",
             broadcast=True,
             timeout=30.0,
@@ -449,7 +449,7 @@ def test_start_and_get_command_status_track_running_operation(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
         state = await pyterm_main.start_command(
-            "tail -f log", fake_context(), path="/tmp", broadcast=False, timeout=9.0
+            fake_context(), "tail -f log", path="/tmp", broadcast=False, timeout=9.0
         )
         status = await pyterm_main.get_command_status(state.command_id)
 
@@ -545,7 +545,7 @@ def test_cancel_command_treats_nullish_command_id_as_cancel_all(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
         monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
 
-        await pyterm_main.start_command("one", fake_context())
+        await pyterm_main.start_command(fake_context(), "one")
         result = await pyterm_main.cancel_command(fake_context(), nullish_command_id)
 
         assert result.status == "cancelled"
@@ -582,7 +582,7 @@ def test_cancel_command_removes_running_operation_and_interrupts_terminal(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
         monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
 
-        state = await pyterm_main.start_command("sleep 30", fake_context(), broadcast=True, timeout=30.0)
+        state = await pyterm_main.start_command(fake_context(), "sleep 30", broadcast=True, timeout=30.0)
         result = await pyterm_main.cancel_command(fake_context(), state.command_id)
 
         assert result.status == "cancelled"
@@ -621,8 +621,8 @@ def test_cancel_command_without_id_cancels_all_running_operations(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
         monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
 
-        first = await pyterm_main.start_command("one", fake_context(), broadcast=False)
-        second = await pyterm_main.start_command("two", fake_context(), broadcast=True)
+        first = await pyterm_main.start_command(fake_context(), "one", broadcast=False)
+        second = await pyterm_main.start_command(fake_context(), "two", broadcast=True)
         result = await pyterm_main.cancel_command(fake_context())
 
         assert result.status == "cancelled"
@@ -658,7 +658,7 @@ def test_resend_command_reuses_original_operation_settings(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
         original = await pyterm_main.start_command(
-            "npm test", fake_context(), path="/repo", broadcast=True, timeout=12.0
+            fake_context(), "npm test", path="/repo", broadcast=True, timeout=12.0
         )
         resent = await pyterm_main.resend_command(fake_context(), original.command_id, cancel_existing=False)
 
@@ -696,7 +696,7 @@ def test_completed_command_status_is_archived_by_session_and_remains_queryable(
 
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
-        started = await pyterm_main.start_command("echo done", fake_context(), path="/repo", timeout=4.0)
+        started = await pyterm_main.start_command(fake_context(), "echo done", path="/repo", timeout=4.0)
         await asyncio.sleep(0)
 
         first_status = await pyterm_main.get_command_status(started.command_id)
@@ -730,7 +730,7 @@ def test_resend_command_can_reuse_completed_operation_settings(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
 
         started = await pyterm_main.start_command(
-            "npm test", fake_context(), path="/repo", broadcast=True, timeout=12.0
+            fake_context(), "npm test", path="/repo", broadcast=True, timeout=12.0
         )
         await asyncio.sleep(0)
         completed = await pyterm_main.get_command_status(started.command_id)
@@ -775,7 +775,7 @@ def test_resend_command_can_cancel_existing_operation_first(
         monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
         monkeypatch.setattr(pyterm_main, "_interrupt_terminal", fake_interrupt_terminal)
 
-        original = await pyterm_main.start_command("python server.py", fake_context(), broadcast=True)
+        original = await pyterm_main.start_command(fake_context(), "python server.py", broadcast=True)
         resent = await pyterm_main.resend_command(fake_context(), original.command_id)
 
         assert original.command_id not in pyterm_main._iter_command_ids(pyterm_main._RUNNING_COMMANDS)

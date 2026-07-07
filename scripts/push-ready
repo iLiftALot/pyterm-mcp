@@ -34,10 +34,10 @@ has_staged_changes() {
 
 run_checks() {
   echo "Running Ruff lint..."
-  uv run --python=3.12 --group dev --group ci ruff check src tests
+  uv run --python=3.10 --group dev --group ci ruff check src tests
 
   echo "Running offline-safe tests..."
-  ITERM_PYTEST_INTEGRATION=0 uv run --python=3.12 --group dev --group ci pytest
+  ITERM_PYTEST_INTEGRATION=0 uv run --python=3.10 --group dev --group ci pytest
 }
 
 pre_push() {
@@ -78,7 +78,7 @@ pre_push() {
   fi
 
   echo "Formatting src and tests..."
-  uv run --python=3.12 --group dev --group ci ruff format src tests
+  uv run --python=3.10 --group dev --group ci ruff format src tests
 
   if has_unstaged_format_targets; then
     echo "Formatting changed files under src/ or tests/."
