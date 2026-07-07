@@ -5,9 +5,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 
-CommandStatus = Literal[
-    "running", "success", "failed", "unknown_error", "timeout", "cancelled", "not_found"
-]
+CommandStatus = Literal["running", "success", "failed", "unknown_error", "timeout", "cancelled", "not_found"]
 
 
 class SupportsSessionId(Protocol):
