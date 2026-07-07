@@ -98,10 +98,22 @@ def _archive_completed_operation(command_id: str) -> CommandOperation | None:
 
 def _configure_status(status: CommandExecutionStatus | None) -> CommandStatus:
     if status is None:
-        return "unknown (Shell-Integration Disabled)"
+        return "not_found"
     if status.timed_out is True:
         return "timeout"
-    return "success" if status.succeeded else "error"
+    if status.was_signaled and status.code in {130, 137, 143}:
+        return "cancelled"
+
+    return "success" if status.succeeded is True else "failed"
+
+
+def _default_tool_result(command_id: str) -> CallToolResult:
+    state = _operation_state(command_id)
+    return CallToolResult(
+        content=[TextContent(type="text", text=state.output)],
+        structuredContent=state.model_dump(),
+        isError=state.is_error,
+    )
 
 
 @overload
@@ -132,10 +144,8 @@ async def _interrupt_terminal(
 
 
 def _operation_state(command_id: str) -> CommandState:
-    op = _get_operation(_RUNNING_COMMANDS, command_id)
-    if op is None:
-        op = _get_operation(_COMPLETED_COMMANDS, command_id)
-
+    # Check _COMPLETED_COMMANDS in case the task done_callback already moved it
+    op = _get_operation(_RUNNING_COMMANDS, command_id) or _get_operation(_COMPLETED_COMMANDS, command_id)
     if op is None:
         return CommandState(
             command=None,
@@ -143,9 +153,9 @@ def _operation_state(command_id: str) -> CommandState:
             path=None,
             timeout=None,
             command_id=command_id,
-            session_id=_parse_session_id(command_id) or "",
+            session_id=_parse_session_id(command_id) or "unknown",
             status="not_found",
-            output=f"No command operation found for id: {command_id}",
+            output=f"No command operation found for id: {command_id}.",
             is_done=True,
         )
 
@@ -165,6 +175,7 @@ def _operation_state(command_id: str) -> CommandState:
     try:
         result = op.task.result()
     except asyncio.InvalidStateError:
+        # future's result isn't yet available
         return CommandState(
             command_id=command_id,
             session_id=_parse_session_id(command_id) or op.session_id,
@@ -204,7 +215,7 @@ def _operation_state(command_id: str) -> CommandState:
         return CommandState(
             command_id=op.command_id,
             session_id=op.session_id,
-            status="error",
+            status="unknown_error",
             command=op.command,
             broadcast=op.broadcast,
             path=op.path,
@@ -271,7 +282,7 @@ async def _send_command(command, *, path=None, broadcast=False, timeout=10.0, ct
         )
     except Exception as e:
         return CommandResult(
-            status="error",
+            status="unknown_error",
             command=command,
             broadcast=broadcast,
             path=path,
@@ -282,12 +293,7 @@ async def _send_command(command, *, path=None, broadcast=False, timeout=10.0, ct
 
 @mcp.tool(title="Send Command", description="Send a command to the user's terminal.")
 async def send_command(
-    ctx: Context,
-    command: str,
-    path: str | None = None,
-    broadcast: bool = False,
-    timeout: float = 10.0,
-    response_timeout: float | None = None,
+    ctx: Context, command: str, path: str | None = None, broadcast: bool = False, timeout: float = 5.0
 ) -> CallToolResult:
     """Send a command to the user's terminal and return the output.
 
@@ -302,45 +308,32 @@ async def send_command(
     :type path: `str | None`, default=None
     :param broadcast: Whether to broadcast the command to all users.
     :type broadcast: `bool`, default=False
-    :param timeout: The maximum time to wait for the command to complete.
-    :type timeout: `float`, default=10.0
-    :param response_timeout: The maximum time to wait for a response.
-    :type response_timeout: `float | None`, default=None
+    :param timeout: The maximum amount of time to wait between terminal content updates.
+        If the timeout is reached and the terminal contents HAVE NOT updated, it is timed out.
+        If the timeout is reached and the terminal contents HAVE updated, the timeout is reset
+        and the process continues to wait for another update upon timeout limit being reached
+        or the completion of the command.
+    :type timeout: `float`, default=5.0
     :return: The result of the command execution.
     :rtype: :class:`CallToolResult`
     """
-    response_wait = response_timeout if response_timeout is not None else timeout + 1.0
     state = _start_command_operation(command, path=path, broadcast=broadcast, timeout=timeout, ctx=ctx)
     op = _get_operation(_RUNNING_COMMANDS, state.command_id)
     if op is None:
-        state = _operation_state(state.command_id)
-        return CallToolResult(
-            content=[TextContent(type="text", text=state.output)],
-            structuredContent=state.model_dump(),
-            isError=True,
-        )
+        return _default_tool_result(state.command_id)
 
-    done, _ = await asyncio.wait({op.task}, timeout=response_wait)
-    if done:
-        state = _operation_state_and_archive_if_done(state.command_id)
-        return CallToolResult(
-            content=[TextContent(type="text", text=state.output)],
-            structuredContent=state.model_dump(),
-            isError=(state.status != "success"),
-        )
+    await op.task
 
+    state = _operation_state_and_archive_if_done(state.command_id)
     return CallToolResult(
         content=[
             TextContent(
                 type="text",
-                text=(
-                    "Command is still running. "
-                    f"Use get_command_status, cancel_command, or resend_command with command_id={state.command_id}"
-                ),
+                text=state.output,
             )
         ],
         structuredContent=state.model_dump(),
-        isError=False,
+        isError=state.is_error,
     )
 
 
@@ -350,7 +343,7 @@ async def start_command(
     command: str,
     path: str | None = None,
     broadcast: bool = False,
-    timeout: float = 10.0,
+    timeout: float = 5.0,
 ) -> CommandState:
     """Start a command without waiting for completion.
 
@@ -365,8 +358,12 @@ async def start_command(
     :type path: `str | None`, default=None
     :param broadcast: Whether to broadcast the command output to all connected clients.
     :type broadcast: `bool`, default=False
-    :param timeout: The maximum time to wait for the command to start.
-    :type timeout: `float`, default=10.0
+    :param timeout: The maximum amount of time to wait between terminal content updates.
+        If the timeout is reached and the terminal contents HAVE NOT updated, it is timed out.
+        If the timeout is reached and the terminal contents HAVE updated, the timeout is reset
+        and the process continues to wait for another update upon timeout limit being reached
+        or the completion of the command.
+    :type timeout: `float`, default=5.0
     :return: The state of the started command.
     :rtype: :class:`CommandState`
     """

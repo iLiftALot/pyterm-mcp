@@ -17,7 +17,6 @@ from iterm2_api_wrapper.typings import (
     CommandExecutionStatus,
     CommandExitCode,
 )
-from mcp.types import TextContent
 from pydantic import ValidationError
 
 from pyterm_mcp import auto_cli, cli
@@ -279,7 +278,7 @@ def test_send_command_helper_returns_error_result(
     result = asyncio.run(pyterm_main._send_command("pwd", timeout=0.5, ctx=fake_context()))
 
     assert result == CommandResult(
-        status="error",
+        status="unknown_error",
         command="pwd",
         broadcast=False,
         path=None,
@@ -355,7 +354,7 @@ def test_send_command_tool_returns_structured_error(
         command: str, *, path: str | None, broadcast: bool, timeout: float, ctx: Any
     ) -> CommandResult:
         return CommandResult(
-            status="error",
+            status="unknown_error",
             command=command,
             broadcast=broadcast,
             path=path,
@@ -383,50 +382,6 @@ def test_send_command_tool_returns_structured_error(
     assert result.structuredContent["command_id"]
     assert pyterm_main._RUNNING_COMMANDS == {}
     assert result.structuredContent["command_id"] in pyterm_main._COMPLETED_COMMANDS["test-session"].operations
-
-
-def test_send_command_tool_returns_running_state_when_response_timeout_expires(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def scenario() -> None:
-        async def fake_send_command(
-            command: str, *, path: str | None, broadcast: bool, timeout: float, ctx: Any
-        ) -> CommandResult:
-            await asyncio.Event().wait()
-            return CommandResult(
-                status="success",
-                command=command,
-                broadcast=broadcast,
-                path=path,
-                timeout=timeout,
-                output="done",
-            )
-
-        monkeypatch.setattr(pyterm_main, "_send_command", fake_send_command)
-
-        result = await pyterm_main.send_command(
-            fake_context(),
-            "sleep 30",
-            path="/work",
-            broadcast=True,
-            timeout=30.0,
-            response_timeout=0.0,
-        )
-
-        assert result.isError is False
-        assert result.structuredContent is not None
-        assert result.structuredContent["status"] == "running"
-        assert result.structuredContent["command"] == "sleep 30"
-        assert result.structuredContent["broadcast"] is True
-        assert result.structuredContent["path"] == "/work"
-        assert result.structuredContent["timeout"] == 30.0
-        assert result.structuredContent["is_done"] is False
-        assert isinstance(result.content[0], TextContent) and "Use get_command_status" in result.content[0].text
-        assert result.structuredContent["command_id"] in pyterm_main._RUNNING_COMMANDS["test-session"].operations
-
-        await cancel_pending_operations()
-
-    asyncio.run(scenario())
 
 
 def test_start_and_get_command_status_track_running_operation(

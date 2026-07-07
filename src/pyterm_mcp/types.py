@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 CommandStatus = Literal[
-    "running", "success", "error", "unknown (Shell-Integration Disabled)", "timeout", "cancelled", "not_found"
+    "running", "success", "failed", "unknown_error", "timeout", "cancelled", "not_found"
 ]
 
 
@@ -26,6 +26,10 @@ class CommandResult(BaseModel):
     timeout: float = Field(..., description="The timeout for the command execution.")
     output: str = Field(..., description="The output of the command execution.")
 
+    @property
+    def is_error(self) -> bool:
+        return self.status in {"failed", "unknown_error", "not_found", "timeout"}
+
 
 class CommandState(BaseModel):
     """State returned by command lifecycle/control tools."""
@@ -39,6 +43,10 @@ class CommandState(BaseModel):
     timeout: float | None = Field(None, description="Command execution timeout.")
     output: str = Field("", description="Latest output, error, or status message.")
     is_done: bool = Field(False, description="Whether the operation reached a terminal state.")
+
+    @property
+    def is_error(self) -> bool:
+        return self.status in {"failed", "unknown_error", "not_found", "timeout"}
 
 
 @dataclass(slots=True)
