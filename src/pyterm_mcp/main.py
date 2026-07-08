@@ -311,8 +311,11 @@ async def send_command(
     :param timeout: The maximum amount of time to wait between terminal content updates.
         If the timeout is reached and the terminal contents HAVE NOT updated, it is timed out.
         If the timeout is reached and the terminal contents HAVE updated, the timeout is reset
-        and the process continues to wait for another update upon timeout limit being reached
-        or the completion of the command.
+        and the process continues to loop waiting to:
+
+        - Check the diff after each timeout
+        - Extract the output of the ompleted command.
+
     :type timeout: `float`, default=5.0
     :return: The result of the command execution.
     :rtype: :class:`CallToolResult`
@@ -361,8 +364,11 @@ async def start_command(
     :param timeout: The maximum amount of time to wait between terminal content updates.
         If the timeout is reached and the terminal contents HAVE NOT updated, it is timed out.
         If the timeout is reached and the terminal contents HAVE updated, the timeout is reset
-        and the process continues to wait for another update upon timeout limit being reached
-        or the completion of the command.
+        and the process continues to loop waiting to:
+
+        - Check the diff after each timeout
+        - Extract the output of the ompleted command.
+
     :type timeout: `float`, default=5.0
     :return: The state of the started command.
     :rtype: :class:`CommandState`
