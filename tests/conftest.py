@@ -219,7 +219,7 @@ def _terminal_theme_from_itermcolors(path: Path) -> TerminalTheme | None:
     try:
         with path.open("rb") as handle:
             data = plistlib.load(handle)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         console.print(f"[red]Failed to load iTerm colors from {path}[/red]: {e}")
         return None
 
@@ -242,7 +242,7 @@ def _load_iterm_profile() -> dict[str, object] | None:
     try:
         with prefs_path.open("rb") as handle:
             data = plistlib.load(handle)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         console.print(f"[red]Failed to load iTerm preferences from {prefs_path}[/red]: {e}")
         return None
 

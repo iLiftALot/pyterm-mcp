@@ -134,13 +134,12 @@ async def _interrupt_terminal(
         assert resolved_session_id
         state = await _get_state_for_session(resolved_session_id)
         await state.send_escape_sequence("CNTRL_C", "CNTRL_C", broadcast=broadcast)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         if isinstance(e, RPCException):
             # TODO: Maybe do something here if using `state.session.async_restart()`...?
             # `state.session.async_restart()` throws `RPCException` if something goes wrong.
             pass
         # Cancellation should not fail just because interrupt delivery failed.
-        pass
 
 
 def _operation_state(command_id: str) -> CommandState:
@@ -211,7 +210,7 @@ def _operation_state(command_id: str) -> CommandState:
             output=str(exc),
             is_done=True,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         return CommandState(
             command_id=op.command_id,
             session_id=op.session_id,
@@ -280,7 +279,7 @@ async def _send_command(command, *, path=None, broadcast=False, timeout=10.0, ct
             timeout=timeout,
             output=output.output,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return CommandResult(
             status="unknown_error",
             command=command,

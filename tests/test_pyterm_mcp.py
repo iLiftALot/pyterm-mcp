@@ -7,7 +7,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Iterator, cast
+from typing import TYPE_CHECKING, Any, Iterator, cast
 
 import mcp.types
 import pytest
@@ -22,6 +22,9 @@ from pydantic import ValidationError
 from pyterm_mcp import auto_cli, cli
 from pyterm_mcp import main as pyterm_main
 from pyterm_mcp.types import CommandOperation, CommandResult
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 
 _UNSET = object()
@@ -87,7 +90,7 @@ def command_status(
 
 def execution_result(
     output: str = "command output",
-    status: CommandExecutionStatus | None | object = _UNSET,
+    status: CommandExecutionStatus | object | None = _UNSET,
 ) -> CommandExecutionResult:
     resolved_status = command_status() if status is _UNSET else status
     assert resolved_status is None or isinstance(resolved_status, CommandExecutionStatus)
@@ -865,7 +868,7 @@ def test_generated_cli_call_tool_filters_empty_optional_arguments(
         def __init__(self, spec: object) -> None:
             self.spec = spec
 
-        async def __aenter__(self) -> FakeClient:
+        async def __aenter__(self) -> Self:
             return self
 
         async def __aexit__(self, *args: object) -> None:
