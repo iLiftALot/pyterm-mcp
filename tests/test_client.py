@@ -142,6 +142,7 @@ def test_get_state_async_from_client_loop_uses_direct_async_path() -> None:
     gateway = DummyGateway([DummyState(marker="boot")])
     client: iTermClient[DummyState] = iTermClient(gateway=gateway)
     try:
+
         async def call_from_client_loop() -> DummyState:
             return await client.get_state_async()
 
